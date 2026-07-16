@@ -1,0 +1,4243 @@
+Offline Document AI for Banking Forms
+
+Software Requirements & Design Specification
+
+Version: 1.0
+
+Target Platform: iOS / iPadOS (2026)
+
+1. Vision
+
+Build a production-grade, offline-first Document AI platform that
+understands banking forms, detects templates, extracts handwritten and
+printed values, validates them through a guided review workspace, and
+exports trusted structured data. The application must be modular,
+privacy-first, and designed to evolve into an enterprise SDK.
+
+2. Objectives
+
+-   Offline processing
+-   Human-in-the-loop validation
+-   Template-aware extraction
+-   Structured JSON generation
+-   Enterprise-ready architecture
+-   Apple-native frameworks only
+
+3. Apple Technology Stack (2026)
+
+-   SwiftUI
+-   VisionKit
+-   Vision
+-   PDFKit
+-   Foundation Models
+-   Core AI
+-   Core ML
+-   SwiftData
+-   Core Image
+-   Metal
+-   BackgroundTasks
+-   App Intents
+-   OSLog / Instruments
+
+4. End-to-End Workflow
+
+Import → Quality Analysis → Preprocessing → Template Detection → Layout
+Understanding → OCR → Field Mapping → Confidence Scoring → Human
+Validation → JSON Generation → Save → Export
+
+5. Screen Catalog
+
+1.  Splash
+2.  Home
+3.  Import
+4.  Scanner
+5.  Processing
+6.  Template Match
+7.  Document Overview
+8.  Page Workspace
+9.  Field Validation
+10. Low Confidence Resolver
+11. Summary
+12. Export
+13. History
+14. Settings
+15. Template Manager
+
+6. UI Pattern
+
+Every document review follows: Document → Page → Field → Crop → Edit →
+Confirm
+
+The main review workspace contains: - Left: Page thumbnails - Center:
+Full page canvas with overlays - Right: Field inspector - Bottom:
+Validation actions
+
+7. Data Model
+
+DocumentSession Template Page Field OCRObservation FieldResult
+UserCorrection ExportRecord
+
+Each FieldResult stores: - Field ID - Bounding Box - OCR Text -
+Normalized Value - Confidence - User Override - Validation State
+
+8. SDK Architecture
+
+Presentation Business Logic Document Engine Template Engine Vision
+Engine Validation Engine Export Engine Persistence Shared Models
+
+9. Security
+
+-   Offline by default
+-   Encrypted local database
+-   Secure export
+-   Audit history
+-   No cloud dependency
+
+10. Future Roadmap
+
+-   Multi-page packets
+-   Custom Core ML handwriting models
+-   Enterprise SDK
+-   MDM deployment
+-   Secure connectors
+-   Continuous template learning
+
+Chapter 11: Detailed Design Area 11
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 12: Detailed Design Area 12
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 13: Detailed Design Area 13
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 14: Detailed Design Area 14
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 15: Detailed Design Area 15
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 16: Detailed Design Area 16
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 17: Detailed Design Area 17
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 18: Detailed Design Area 18
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 19: Detailed Design Area 19
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 20: Detailed Design Area 20
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 21: Detailed Design Area 21
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 22: Detailed Design Area 22
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 23: Detailed Design Area 23
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 24: Detailed Design Area 24
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 25: Detailed Design Area 25
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 26: Detailed Design Area 26
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 27: Detailed Design Area 27
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 28: Detailed Design Area 28
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 29: Detailed Design Area 29
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 30: Detailed Design Area 30
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 31: Detailed Design Area 31
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 32: Detailed Design Area 32
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 33: Detailed Design Area 33
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 34: Detailed Design Area 34
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 35: Detailed Design Area 35
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 36: Detailed Design Area 36
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 37: Detailed Design Area 37
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 38: Detailed Design Area 38
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 39: Detailed Design Area 39
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 40: Detailed Design Area 40
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 41: Detailed Design Area 41
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 42: Detailed Design Area 42
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 43: Detailed Design Area 43
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 44: Detailed Design Area 44
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 45: Detailed Design Area 45
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 46: Detailed Design Area 46
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 47: Detailed Design Area 47
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 48: Detailed Design Area 48
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 49: Detailed Design Area 49
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 50: Detailed Design Area 50
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 51: Detailed Design Area 51
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 52: Detailed Design Area 52
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 53: Detailed Design Area 53
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 54: Detailed Design Area 54
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 55: Detailed Design Area 55
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 56: Detailed Design Area 56
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 57: Detailed Design Area 57
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 58: Detailed Design Area 58
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 59: Detailed Design Area 59
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 60: Detailed Design Area 60
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 61: Detailed Design Area 61
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 62: Detailed Design Area 62
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 63: Detailed Design Area 63
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 64: Detailed Design Area 64
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 65: Detailed Design Area 65
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 66: Detailed Design Area 66
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 67: Detailed Design Area 67
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 68: Detailed Design Area 68
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 69: Detailed Design Area 69
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 70: Detailed Design Area 70
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 71: Detailed Design Area 71
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 72: Detailed Design Area 72
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 73: Detailed Design Area 73
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 74: Detailed Design Area 74
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 75: Detailed Design Area 75
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 76: Detailed Design Area 76
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 77: Detailed Design Area 77
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 78: Detailed Design Area 78
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 79: Detailed Design Area 79
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 80: Detailed Design Area 80
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 81: Detailed Design Area 81
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 82: Detailed Design Area 82
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 83: Detailed Design Area 83
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 84: Detailed Design Area 84
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 85: Detailed Design Area 85
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 86: Detailed Design Area 86
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 87: Detailed Design Area 87
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 88: Detailed Design Area 88
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 89: Detailed Design Area 89
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 90: Detailed Design Area 90
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 91: Detailed Design Area 91
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 92: Detailed Design Area 92
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 93: Detailed Design Area 93
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 94: Detailed Design Area 94
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 95: Detailed Design Area 95
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 96: Detailed Design Area 96
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 97: Detailed Design Area 97
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 98: Detailed Design Area 98
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 99: Detailed Design Area 99
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
+
+Chapter 100: Detailed Design Area 100
+
+Purpose
+
+This chapter describes one subsystem of the Document AI platform in
+production detail.
+
+Functional Requirements
+
+-   Define responsibilities.
+-   Describe inputs and outputs.
+-   Specify UI states.
+-   Explain validation rules.
+-   Record error handling.
+-   Describe accessibility behaviour.
+-   Explain offline persistence.
+-   Map Apple-native framework usage.
+
+Screen Behaviour
+
+Purpose: Provide a consistent, guided experience.
+
+UI Elements: - Navigation bar - Toolbar - Primary action - Secondary
+action - Status badge - Confidence indicator - Progress state - Empty
+state - Error banner - Help sheet
+
+Interactions: - Tap - Long press - Drag - Zoom - Multi-select - Keyboard
+shortcuts (iPad)
+
+Technical Flow
+
+SwiftUI View → ViewModel → Business Layer → Vision / Foundation Models /
+Core AI → SwiftData → UI Refresh
+
+Performance Goals
+
+-   Responsive UI
+-   Background processing
+-   Incremental rendering
+-   Low memory usage
+
+Acceptance Criteria
+
+The feature must work offline, preserve audit history, support
+accessibility, and integrate with the shared SDK architecture.
