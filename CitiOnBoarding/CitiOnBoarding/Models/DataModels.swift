@@ -12,6 +12,7 @@ struct TemplateFieldCandidate: Identifiable {
     var expectedType: FieldType
     var isRequired: Bool
     var boundingBox: CGRect
+    var inputBox: CGRect? = nil
 }
 
 @Model
@@ -132,7 +133,7 @@ final class Field {
     
     var template: Template?
     
-    init(id: UUID = UUID(), fieldId: String? = nil, name: String, expectedType: FieldType, boundingBox: CGRect, isRequired: Bool = true, isHandwritten: Bool = true) {
+    init(id: UUID = UUID(), fieldId: String? = nil, name: String, expectedType: FieldType, boundingBox: CGRect, inputBox: CGRect? = nil, isRequired: Bool = true, isHandwritten: Bool = true) {
         self.id = id
         self.fieldId = fieldId ?? name.lowercased()
             .replacingOccurrences(of: " ", with: "_")
@@ -145,10 +146,11 @@ final class Field {
         self.boundingBoxWidth = boundingBox.width
         self.boundingBoxHeight = boundingBox.height
         
-        self.inputBoxX = boundingBox.minX
-        self.inputBoxY = boundingBox.minY
-        self.inputBoxWidth = boundingBox.width
-        self.inputBoxHeight = boundingBox.height
+        let actualInputBox = inputBox ?? boundingBox
+        self.inputBoxX = actualInputBox.minX
+        self.inputBoxY = actualInputBox.minY
+        self.inputBoxWidth = actualInputBox.width
+        self.inputBoxHeight = actualInputBox.height
         
         self.labelBoxX = max(0, boundingBox.minX - 0.15)
         self.labelBoxY = boundingBox.minY

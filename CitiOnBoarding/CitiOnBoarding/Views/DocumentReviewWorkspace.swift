@@ -898,7 +898,7 @@ struct DocumentReviewWorkspace: View {
                         VStack(alignment: .leading, spacing: 4) {
                             debugStepRow(step: "1. Image Quality Engine", status: "PASSED (\(Int((session.qualityScore ?? 0.8) * 100))%)")
                             debugStepRow(step: "2. Perspective Correction", status: "Warped to Standard A4 Grid")
-                            debugStepRow(step: "3. Template Matching Engine", status: "Citi Credit Card Application")
+                            debugStepRow(step: "3. Template Matching Engine", status: session.matchedTemplate?.name ?? "Citi Account Opening Form")
                             debugStepRow(step: "4. Homography Alignment", status: "Translation Matrix Resolved")
                             debugStepRow(step: "5. Coordinate Projection", status: "Grid Box Intersection Applied")
                         }
