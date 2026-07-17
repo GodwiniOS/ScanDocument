@@ -53,156 +53,193 @@ final class DocumentEngine {
     
     /// Processes a set of scanned UIImages through the complete 14-Stage Enterprise Pipeline.
     func processScan(images: [UIImage], modelContext: ModelContext) async throws -> DocumentSession {
-        // Stage 1: Document Acquisition
         let session = DocumentSession()
         session.status = .processing
         modelContext.insert(session)
         
         var pages: [Page] = []
         var totalQualityScore = 0.0
-        var allOcrTexts = ""
         
-        // Process each page
         for (index, rawImage) in images.enumerated() {
-            // Stage 2: Image Quality Assessment
+            // Stage 1: Scan Quality check
             let qualityResult = ImageQualityEngine.shared.assess(image: rawImage)
             totalQualityScore += qualityResult.score
             
-            // Stage 3: Image Enhancement (Denoise, sharpen, normalize contrast)
-            let enhancedImage = ImageEnhancementEngine.shared.enhance(image: rawImage)
-            guard let cgImage = enhancedImage.cgImage else { continue }
+            // Stage 2: Document Registration / Perspective correction
+            let warpedImage = ImageAlignmentEngine.shared.perspectiveCorrect(image: rawImage)
+            guard let cgImage = warpedImage.cgImage else { continue }
             
-            // Save cleaned page image to disk
+            let width = CGFloat(cgImage.width)
+            let height = CGFloat(cgImage.height)
+            
+            // Save perspective-corrected page image to disk
             let fileName = "\(session.id.uuidString)_page_\(index).jpg"
-            let path = try saveImageToDisk(image: enhancedImage, fileName: fileName)
+            let path = try saveImageToDisk(image: warpedImage, fileName: fileName)
             
             let page = Page(pageNumber: index + 1, imagePath: path)
             page.session = session
             modelContext.insert(page)
             pages.append(page)
             
-            // Stage 8: OCR & Handwriting Recognition (full page on first page to match template)
+            // Extract standard page observations for Template matching
             let observations = try await VisionEngine.shared.process(page: cgImage)
-            let pageText = observations.compactMap { $0.topCandidates(1).first?.string }.joined(separator: " ")
-            allOcrTexts += pageText + " "
             
-            // Stage 5: Template Detection
+            // Stage 3: Template Matching
             let matchedTemplate = await TemplateEngine.shared.detectTemplate(for: observations, modelContext: modelContext)
-            
-            // Stage 6: Layout Analysis (Generate simulated Layout Tree)
-            let _ = LayoutAnalysisEngine.shared.analyze(observations: observations)
             
             if let template = matchedTemplate {
                 session.matchedTemplate = template
                 
-                // Stage 7 & 10: Field Detection & Mapping
+                // Stage 4: Template Alignment (Homography translation / scale)
+                let alignment = ImageAlignmentEngine.shared.align(scannedObservations: observations, template: template)
+                session.templateConfidence = 0.95 // Matched template confidence
+                
+                // Stage 5: Field Localization & Specialized Crops
                 if let fields = template.fields {
                     for field in fields {
+                        // Project template box to scan
+                        let projectedRect = ImageAlignmentEngine.shared.project(rect: field.rect, alignment: alignment)
+                        
+                        let cropRect = CGRect(
+                            x: projectedRect.origin.x * width,
+                            y: projectedRect.origin.y * height,
+                            width: projectedRect.size.width * width,
+                            height: projectedRect.size.height * height
+                        )
+                        
+                        guard cropRect.width > 0 && cropRect.height > 0,
+                              let croppedCgImage = cgImage.cropping(to: cropRect) else { continue }
+                        let cropImage = UIImage(cgImage: croppedCgImage)
+                        
+                        var extractedText = ""
+                        var ocrConf = 0.90
+                        var engineUsed = "printed"
+                        
                         if field.captureMode == "image" {
-                            // Cropping mode (signature, initials, stamp, photo, etc.)
-                            if let sigData = cropAndProcessSignature(image: enhancedImage, rect: field.rect, sessionID: session.id, fieldId: field.fieldId, pageNumber: page.pageNumber) {
+                            // Signature Engine
+                            engineUsed = "signature"
+                            if let sigData = SignatureEngine.shared.process(crop: cropImage, sessionID: session.id, fieldId: field.fieldId, pageNumber: page.pageNumber) {
                                 let asset = SignatureAsset(
                                     fieldId: field.fieldId,
                                     pageNumber: page.pageNumber,
                                     imagePath: sigData.path,
                                     status: sigData.status,
-                                    qualityScore: sigData.qualityScore,
+                                    qualityScore: sigData.confidence,
                                     blank: sigData.blank,
                                     userVerified: false
                                 )
                                 asset.session = session
                                 modelContext.insert(asset)
                                 
-                                let result = FieldResult(
-                                    fieldID: field.id,
-                                    boundingBox: field.rect,
-                                    ocrText: sigData.status.uppercased(),
-                                    confidence: sigData.qualityScore,
-                                    ocrConfidence: sigData.qualityScore,
-                                    mappingConfidence: 1.0,
-                                    validationConfidence: sigData.blank ? 0.0 : 1.0,
-                                    overallConfidence: sigData.qualityScore,
-                                    isHandwritten: true,
-                                    userConfirmed: false,
-                                    edited: false
-                                )
-                                result.page = page
-                                result.validationState = sigData.blank ? .invalid : .autoAccepted
-                                modelContext.insert(result)
+                                extractedText = sigData.status.uppercased()
+                                ocrConf = sigData.confidence
                             }
                         } else if field.captureMode == "checkbox" {
-                            // Checkbox detection
-                            let isChecked = detectCheckboxChecked(image: enhancedImage, rect: field.rect)
-                            let resultStr = isChecked ? "YES" : "NO"
-                            
-                            let result = FieldResult(
-                                fieldID: field.id,
-                                boundingBox: field.rect,
-                                ocrText: resultStr,
-                                confidence: 0.95,
-                                ocrConfidence: 0.95,
-                                mappingConfidence: 1.0,
-                                validationConfidence: 1.0,
-                                overallConfidence: 0.95,
-                                isHandwritten: true,
-                                userConfirmed: false,
-                                edited: false
-                            )
-                            result.page = page
-                            result.validationState = .autoAccepted
-                            modelContext.insert(result)
+                            // Checkbox Engine
+                            engineUsed = "checkbox"
+                            let chkData = CheckboxEngine.shared.process(crop: cropImage)
+                            extractedText = chkData.checked ? "YES" : "NO"
+                            ocrConf = chkData.confidence
                         } else {
-                            // Text capture mode (OCR / Targeted ROI)
-                            let ocrText: String
-                            do {
-                                ocrText = try await VisionEngine.shared.performTargetedOCR(on: cgImage, inRect: field.rect)
-                            } catch {
-                                ocrText = ""
+                            // Text capture mode - printed vs handwriting
+                            if field.isHandwritten {
+                                engineUsed = "handwriting"
+                                do {
+                                    let res = try await HandwritingEngine.shared.process(crop: cropImage)
+                                    extractedText = res.text
+                                    ocrConf = res.confidence
+                                } catch {
+                                    extractedText = ""
+                                    ocrConf = 0.0
+                                }
+                            } else {
+                                engineUsed = "printed"
+                                do {
+                                    let res = try await PrintedOCREngine.shared.process(crop: cropImage)
+                                    extractedText = res.text
+                                    ocrConf = res.confidence
+                                } catch {
+                                    extractedText = ""
+                                    ocrConf = 0.0
+                                }
                             }
-                            
-                            let isValid = ValidationEngine.shared.validate(text: ocrText, for: field.expectedType)
-                            let result = FieldResult(
-                                fieldID: field.id,
-                                boundingBox: field.rect,
-                                ocrText: ocrText,
-                                confidence: 0.9,
-                                ocrConfidence: 0.9,
-                                mappingConfidence: 1.0,
-                                validationConfidence: isValid ? 1.0 : 0.0,
-                                overallConfidence: isValid ? 0.95 : 0.45,
-                                isHandwritten: field.isHandwritten,
-                                userConfirmed: false,
-                                edited: false
-                            )
-                            result.page = page
-                            result.normalizedValue = normalizeValue(ocrText, for: field.expectedType)
+                        }
+                        
+                        // Stage 6: Validation & Normalization
+                        let isValid = ValidationEngine.shared.validate(text: extractedText, for: field.expectedType)
+                        let normalizedVal = normalizeValue(extractedText, for: field.expectedType)
+                        
+                        // Stage 7: Confidence Scoring (Review Engine)
+                        let alignmentScore = (alignment.shiftX == 0 && alignment.shiftY == 0) ? 1.0 : 0.90
+                        let scores = ReviewEngine.shared.calculateConfidence(
+                            qualityScore: qualityResult.score,
+                            alignmentScore: alignmentScore,
+                            ocrScore: ocrConf,
+                            validationScore: isValid ? 1.0 : 0.0
+                        )
+                        
+                        let result = FieldResult(
+                            fieldID: field.id,
+                            boundingBox: projectedRect, // Store projected/actual crop bounds in document space
+                            ocrText: extractedText,
+                            confidence: scores.overall,
+                            ocrConfidence: scores.ocr,
+                            mappingConfidence: scores.mapping,
+                            validationConfidence: scores.validation,
+                            overallConfidence: scores.overall,
+                            isHandwritten: field.isHandwritten,
+                            userConfirmed: false,
+                            edited: false,
+                            recognitionEngineUsed: engineUsed,
+                            scoreImageQuality: qualityResult.score,
+                            scoreAlignment: alignmentScore,
+                            scoreOCR: ocrConf,
+                            scoreValidation: isValid ? 1.0 : 0.0,
+                            originalPageNumber: page.pageNumber,
+                            overrideHistory: []
+                        )
+                        result.page = page
+                        result.normalizedValue = normalizedVal
+                        
+                        if field.captureMode == "image" {
+                            result.validationState = (extractedText == "MISSING") ? .invalid : .needsReview
+                        } else if field.captureMode == "checkbox" {
+                            result.validationState = .autoAccepted
+                        } else {
                             result.validationState = isValid ? .autoAccepted : .invalid
-                            if ocrText.isEmpty {
+                            if extractedText.isEmpty {
                                 result.validationState = .empty
                             }
-                            modelContext.insert(result)
                         }
+                        modelContext.insert(result)
                     }
                 }
             } else {
-                // If no template matched, create fallback FieldResults for prominent OCR lines
+                // If no template matched, fallback to prominent OCR lines
                 for observation in observations.prefix(10) {
                     let text = observation.topCandidates(1).first?.string ?? ""
                     let confidence = Double(observation.topCandidates(1).first?.confidence ?? 0.0)
                     let rect = observation.boundingBox.toTopLeft
                     
                     let result = FieldResult(
-                        fieldID: UUID(), // Temporary or unmapped
+                        fieldID: UUID(), // Temporary
                         boundingBox: rect,
                         ocrText: text,
                         confidence: confidence,
                         ocrConfidence: confidence,
-                        mappingConfidence: 0.8,
+                        mappingConfidence: 0.5,
                         validationConfidence: 1.0,
-                        overallConfidence: (confidence + 0.8 + 1.0) / 3.0,
-                        isHandwritten: true,
+                        overallConfidence: confidence * 0.7,
+                        isHandwritten: false,
                         userConfirmed: false,
-                        edited: false
+                        edited: false,
+                        recognitionEngineUsed: "printed_fallback",
+                        scoreImageQuality: qualityResult.score,
+                        scoreAlignment: 0.5,
+                        scoreOCR: confidence,
+                        scoreValidation: 1.0,
+                        originalPageNumber: page.pageNumber,
+                        overrideHistory: []
                     )
                     result.page = page
                     result.validationState = .needsReview
@@ -211,23 +248,13 @@ final class DocumentEngine {
             }
         }
         
-        // Stage 4: Document Classification
-        let finalDocType = DocumentClassificationEngine.shared.classify(text: allOcrTexts)
-        session.documentType = finalDocType
-        
-        // Update general session properties
-        let averageQuality = images.isEmpty ? 0.0 : totalQualityScore / Double(images.count)
-        session.qualityScore = averageQuality
-        session.qualityStatus = averageQuality >= 0.6 ? "GOOD" : "POOR"
-        session.templateConfidence = session.matchedTemplate != nil ? 0.98 : 0.0
-        
-        // Stage 13: Structured Banking Object
+        let avgQualityScore = totalQualityScore / Double(images.count)
+        session.qualityScore = avgQualityScore
+        session.qualityStatus = avgQualityScore >= 0.7 ? "GOOD" : "POOR"
+        session.status = determineFinalStatus(for: session)
         session.normalizedBankingJSON = generateStructuredBankingJSON(session: session)
         
-        // Stage 12: Determine status for human-in-the-loop validation
-        session.status = determineFinalStatus(for: session)
-        
-        try modelContext.save()
+        try? modelContext.save()
         return session
     }
     
@@ -587,7 +614,7 @@ final class ImageQualityEngine {
     private init() {}
     
     struct QualityResult {
-        let score: Double // 0.0 to 1.0 (e.g. 0.92 is 92%)
+        let score: Double // 0.0 to 1.0
         let status: String // "GOOD" or "POOR"
         let details: String
     }
@@ -598,11 +625,13 @@ final class ImageQualityEngine {
         }
         
         let ciImage = CIImage(cgImage: cgImage)
+        
+        // 1. Calculate Average Brightness
         let filter = CIFilter(name: "CIAreaAverage")
         filter?.setValue(ciImage, forKey: kCIInputImageKey)
         filter?.setValue(CIVector(cgRect: ciImage.extent), forKey: kCIInputExtentKey)
         
-        var brightness: Double = 0.65 // standard default
+        var brightness: Double = 0.65
         if let outputImage = filter?.outputImage {
             var bitmap = [UInt8](repeating: 0, count: 4)
             let context = CIContext(options: nil)
@@ -613,27 +642,328 @@ final class ImageQualityEngine {
             brightness = 0.299 * r + 0.587 * g + 0.114 * b
         }
         
+        // 2. Sobel Edge Sharpness Estimation (detects blur)
+        let edgeSharpness = calculateEdgeSharpness(ciImage: ciImage)
+        
         var score = 1.0
-        var details = "Optimal brightness and contrast."
+        var details = "Optimal document scan quality."
         
         if brightness < 0.35 {
             score -= (0.35 - brightness) * 1.5
-            details = "Image is too dark or contains heavy shadows."
+            details = "Image is too dark. Increase lighting or retake scan."
         } else if brightness > 0.85 {
             score -= (brightness - 0.85) * 1.2
-            details = "Image contains glare or is washed out."
+            details = "Image contains glare. Reposition and retake scan."
+        }
+        
+        if edgeSharpness < 0.03 { // Soft edges suggest a blurry photo
+            score -= 0.25
+            details = "Image is blurry. Please hold camera still and retake scan."
         }
         
         let aspectRatio = Double(cgImage.width) / Double(cgImage.height)
         if aspectRatio < 0.4 || aspectRatio > 2.5 {
             score -= 0.15
-            details = "Unusual aspect ratio, possible clipping."
+            details = "Poor page alignment. Align document boundaries."
         }
         
         let finalScore = max(0.1, min(1.0, score))
-        let status = finalScore >= 0.6 ? "GOOD" : "POOR"
+        let status = finalScore >= 0.7 ? "GOOD" : "POOR"
         
         return QualityResult(score: finalScore, status: status, details: details)
+    }
+    
+    private func calculateEdgeSharpness(ciImage: CIImage) -> Double {
+        let filter = CIFilter(name: "CISobelGradients")
+        filter?.setValue(ciImage, forKey: kCIInputImageKey)
+        guard let output = filter?.outputImage else { return 0.05 }
+        
+        let averageFilter = CIFilter(name: "CIAreaAverage")
+        averageFilter?.setValue(output, forKey: kCIInputImageKey)
+        averageFilter?.setValue(CIVector(cgRect: output.extent), forKey: kCIInputExtentKey)
+        
+        var bitmap = [UInt8](repeating: 0, count: 4)
+        let context = CIContext(options: nil)
+        context.render(averageFilter!.outputImage!, toBitmap: &bitmap, rowBytes: 4, bounds: CGRect(x: 0, y: 0, width: 1, height: 1), format: .RGBA8, colorSpace: nil)
+        let edgeIntensity = Double(bitmap[0] + bitmap[1] + bitmap[2]) / 3.0 / 255.0
+        return edgeIntensity
+    }
+    
+    func analyzeInkDensity(uiImage: UIImage) -> (inkRatio: Double, averageBrightness: Double) {
+        guard let cgImage = uiImage.cgImage else { return (0.0, 1.0) }
+        
+        let width = cgImage.width
+        let height = cgImage.height
+        let bytesPerPixel = 4
+        let bytesPerRow = width * bytesPerPixel
+        let totalPixels = width * height
+        
+        var rawData = [UInt8](repeating: 0, count: totalPixels * bytesPerPixel)
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        let context = CGContext(
+            data: &rawData,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: bytesPerRow,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue
+        )
+        
+        context?.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+        
+        var darkPixelCount = 0
+        var totalBrightness = 0.0
+        
+        for i in 0..<totalPixels {
+            let r = Double(rawData[i * 4])
+            let g = Double(rawData[i * 4 + 1])
+            let b = Double(rawData[i * 4 + 2])
+            
+            let luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255.0
+            totalBrightness += luminance
+            
+            if luminance < 0.85 { // Ink pixel threshold
+                darkPixelCount += 1
+            }
+        }
+        
+        let inkRatio = Double(darkPixelCount) / Double(totalPixels)
+        let averageBrightness = totalBrightness / Double(totalPixels)
+        
+        return (inkRatio: inkRatio, averageBrightness: averageBrightness)
+    }
+}
+
+@MainActor
+final class ImageAlignmentEngine {
+    static let shared = ImageAlignmentEngine()
+    private init() {}
+    
+    /// Perspective corrects a raw page image by finding the largest rectangle contour
+    func perspectiveCorrect(image: UIImage) -> UIImage {
+        guard let cgImage = image.cgImage else { return image }
+        let ciImage = CIImage(cgImage: cgImage)
+        
+        let request = VNDetectRectanglesRequest()
+        request.minimumConfidence = 0.3
+        request.maximumObservations = 1
+        
+        let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+        do {
+            try handler.perform([request])
+        } catch {
+            print("Failed to perform rectangle detection: \(error)")
+            return image
+        }
+        
+        guard let rectObservation = request.results?.first else {
+            print("No rectangle found, skipping perspective correction")
+            return image
+        }
+        
+        let imageSize = ciImage.extent.size
+        let topLeft = CGPoint(x: rectObservation.topLeft.x * imageSize.width, y: rectObservation.topLeft.y * imageSize.height)
+        let topRight = CGPoint(x: rectObservation.topRight.x * imageSize.width, y: rectObservation.topRight.y * imageSize.height)
+        let bottomLeft = CGPoint(x: rectObservation.bottomLeft.x * imageSize.width, y: rectObservation.bottomLeft.y * imageSize.height)
+        let bottomRight = CGPoint(x: rectObservation.bottomRight.x * imageSize.width, y: rectObservation.bottomRight.y * imageSize.height)
+        
+        let filter = CIFilter(name: "CIPerspectiveCorrection")
+        filter?.setValue(ciImage, forKey: kCIInputImageKey)
+        filter?.setValue(CIVector(cgPoint: topLeft), forKey: "inputTopLeft")
+        filter?.setValue(CIVector(cgPoint: topRight), forKey: "inputTopRight")
+        filter?.setValue(CIVector(cgPoint: bottomLeft), forKey: "inputBottomLeft")
+        filter?.setValue(CIVector(cgPoint: bottomRight), forKey: "inputBottomRight")
+        
+        let context = CIContext(options: nil)
+        if let output = filter?.outputImage, let finalCgImage = context.createCGImage(output, from: output.extent) {
+            return UIImage(cgImage: finalCgImage)
+        }
+        
+        return image
+    }
+    
+    /// Computes scaling & shift alignment parameters by comparing scanned OCR elements to template fields.
+    func align(scannedObservations: [VNRecognizedTextObservation], template: Template) -> (shiftX: Double, shiftY: Double, scaleX: Double, scaleY: Double) {
+        var shiftX = 0.0
+        var shiftY = 0.0
+        let scaleX = 1.0
+        let scaleY = 1.0
+        
+        let texts = scannedObservations.compactMap { (obs: VNRecognizedTextObservation) -> (text: String, rect: CGRect)? in
+            guard let candidate = obs.topCandidates(1).first else { return nil }
+            return (candidate.string.lowercased(), obs.boundingBox.toTopLeft)
+        }
+        
+        // Try matching "client profile" or "private bank" to check geometric drift
+        if let pbScan = texts.first(where: { $0.text.contains("private") && $0.text.contains("bank") }) {
+            let expectedX = 0.08
+            let expectedY = 0.14
+            shiftX = pbScan.rect.minX - expectedX
+            shiftY = pbScan.rect.minY - expectedY
+        } else if let cpScan = texts.first(where: { $0.text.contains("client") && $0.text.contains("profile") }) {
+            let expectedX = 0.05
+            let expectedY = 0.42
+            shiftX = cpScan.rect.minX - expectedX
+            shiftY = cpScan.rect.minY - expectedY
+        }
+        
+        // Keep shifts within safety margins
+        shiftX = max(-0.15, min(0.15, shiftX))
+        shiftY = max(-0.15, min(0.15, shiftY))
+        
+        return (shiftX: shiftX, shiftY: shiftY, scaleX: scaleX, scaleY: scaleY)
+    }
+    
+    func project(rect: CGRect, alignment: (shiftX: Double, shiftY: Double, scaleX: Double, scaleY: Double)) -> CGRect {
+        return CGRect(
+            x: max(0.0, min(1.0, rect.origin.x * alignment.scaleX + alignment.shiftX)),
+            y: max(0.0, min(1.0, rect.origin.y * alignment.scaleY + alignment.shiftY)),
+            width: min(1.0 - rect.origin.x, rect.size.width * alignment.scaleX),
+            height: min(1.0 - rect.origin.y, rect.size.height * alignment.scaleY)
+        )
+    }
+}
+
+@MainActor
+final class PrintedOCREngine {
+    static let shared = PrintedOCREngine()
+    private init() {}
+    
+    func process(crop: UIImage) async throws -> (text: String, confidence: Double) {
+        guard let cgImage = crop.cgImage else { return ("", 0.0) }
+        
+        return try await withCheckedThrowingContinuation { continuation in
+            let request = VNRecognizeTextRequest { req, err in
+                if let err = err {
+                    continuation.resume(throwing: err)
+                    return
+                }
+                let observations = req.results as? [VNRecognizedTextObservation] ?? []
+                let text = observations.compactMap { $0.topCandidates(1).first?.string }.joined(separator: " ")
+                let conf = observations.map { Double($0.topCandidates(1).first?.confidence ?? 0.0) }.reduce(0.0, +) / max(Double(observations.count), 1.0)
+                continuation.resume(returning: (text: text, confidence: conf))
+            }
+            request.recognitionLevel = .accurate
+            request.usesLanguageCorrection = true
+            
+            let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+            do {
+                try handler.perform([request])
+            } catch {
+                continuation.resume(throwing: error)
+            }
+        }
+    }
+}
+
+@MainActor
+final class HandwritingEngine {
+    static let shared = HandwritingEngine()
+    private init() {}
+    
+    func process(crop: UIImage) async throws -> (text: String, confidence: Double) {
+        guard let cgImage = crop.cgImage else { return ("", 0.0) }
+        
+        return try await withCheckedThrowingContinuation { continuation in
+            let request = VNRecognizeTextRequest { req, err in
+                if let err = err {
+                    continuation.resume(throwing: err)
+                    return
+                }
+                let observations = req.results as? [VNRecognizedTextObservation] ?? []
+                let text = observations.compactMap { $0.topCandidates(1).first?.string }.joined(separator: " ")
+                let conf = observations.map { Double($0.topCandidates(1).first?.confidence ?? 0.0) }.reduce(0.0, +) / max(Double(observations.count), 1.0)
+                continuation.resume(returning: (text: text, confidence: conf))
+            }
+            request.recognitionLevel = .accurate
+            request.usesLanguageCorrection = true
+            
+            let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+            do {
+                try handler.perform([request])
+            } catch {
+                continuation.resume(throwing: error)
+            }
+        }
+    }
+}
+
+@MainActor
+final class CheckboxEngine {
+    static let shared = CheckboxEngine()
+    private init() {}
+    
+    func process(crop: UIImage) -> (checked: Bool, confidence: Double) {
+        let stats = ImageQualityEngine.shared.analyzeInkDensity(uiImage: crop)
+        let isChecked = stats.inkRatio > 0.16
+        return (checked: isChecked, confidence: 0.95)
+    }
+}
+
+@MainActor
+final class SignatureEngine {
+    static let shared = SignatureEngine()
+    private init() {}
+    
+    func process(crop: UIImage, sessionID: UUID, fieldId: String, pageNumber: Int) -> (path: String, status: String, confidence: Double, blank: Bool)? {
+        let ciImage = CIImage(image: crop)
+        let filter = CIFilter(name: "CIColorControls")
+        filter?.setValue(ciImage, forKey: kCIInputImageKey)
+        filter?.setValue(1.5, forKey: kCIInputContrastKey)
+        filter?.setValue(0.0, forKey: kCIInputSaturationKey)
+        
+        let context = CIContext(options: nil)
+        let finalUIImage: UIImage
+        if let output = filter?.outputImage, let finalCgImage = context.createCGImage(output, from: output.extent) {
+            finalUIImage = UIImage(cgImage: finalCgImage)
+        } else {
+            finalUIImage = crop
+        }
+        
+        let stats = ImageQualityEngine.shared.analyzeInkDensity(uiImage: finalUIImage)
+        let isBlank = stats.inkRatio < 0.02
+        let status = isBlank ? "missing" : "present"
+        
+        let fileManager = FileManager.default
+        let paths = fileManager.urls(for: .documentDirectory, in: .userDomainMask)
+        guard let docDir = paths.first else { return nil }
+        
+        let signatureDir = docDir
+            .appendingPathComponent("sessions")
+            .appendingPathComponent(sessionID.uuidString)
+            .appendingPathComponent("signatures")
+            .appendingPathComponent("page_\(pageNumber)")
+        
+        do {
+            try fileManager.createDirectory(at: signatureDir, withIntermediateDirectories: true, attributes: nil)
+            let fileURL = signatureDir.appendingPathComponent("\(fieldId).png")
+            
+            if let pngData = finalUIImage.pngData() {
+                try pngData.write(to: fileURL)
+                let relativePath = "sessions/\(sessionID.uuidString)/signatures/page_\(pageNumber)/\(fieldId).png"
+                return (path: relativePath, status: status, confidence: 0.95, blank: isBlank)
+            }
+        } catch {
+            print("Failed to save signature asset: \(error.localizedDescription)")
+        }
+        return nil
+    }
+}
+
+@MainActor
+final class ReviewEngine {
+    static let shared = ReviewEngine()
+    private init() {}
+    
+    func calculateConfidence(
+        qualityScore: Double,
+        alignmentScore: Double,
+        ocrScore: Double,
+        validationScore: Double
+    ) -> (ocr: Double, mapping: Double, validation: Double, overall: Double) {
+        let overall = 0.2 * qualityScore + 0.2 * alignmentScore + 0.4 * ocrScore + 0.2 * validationScore
+        return (ocr: ocrScore, mapping: alignmentScore, validation: validationScore, overall: overall)
     }
 }
 

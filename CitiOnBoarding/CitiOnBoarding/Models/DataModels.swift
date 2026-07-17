@@ -69,14 +69,18 @@ final class Template {
     var id: UUID
     var name: String
     var version: String
+    var revision: String
+    var effectiveDate: Date
     
     @Relationship(deleteRule: .cascade, inverse: \Field.template)
     var fields: [Field]?
     
-    init(id: UUID = UUID(), name: String, version: String) {
+    init(id: UUID = UUID(), name: String, version: String, revision: String = "A", effectiveDate: Date = Date()) {
         self.id = id
         self.name = name
         self.version = version
+        self.revision = revision
+        self.effectiveDate = effectiveDate
     }
 }
 
@@ -238,6 +242,15 @@ final class FieldResult {
     
     var page: Page?
     
+    // Lineage & Audit
+    var recognitionEngineUsed: String
+    var scoreImageQuality: Double
+    var scoreAlignment: Double
+    var scoreOCR: Double
+    var scoreValidation: Double
+    var originalPageNumber: Int
+    var overrideHistory: [String]
+    
     init(
         id: UUID = UUID(),
         fieldID: UUID,
@@ -250,7 +263,14 @@ final class FieldResult {
         overallConfidence: Double = 1.0,
         isHandwritten: Bool = true,
         userConfirmed: Bool = false,
-        edited: Bool = false
+        edited: Bool = false,
+        recognitionEngineUsed: String = "printed",
+        scoreImageQuality: Double = 1.0,
+        scoreAlignment: Double = 1.0,
+        scoreOCR: Double = 1.0,
+        scoreValidation: Double = 1.0,
+        originalPageNumber: Int = 1,
+        overrideHistory: [String] = []
     ) {
         self.id = id
         self.fieldID = fieldID
@@ -268,6 +288,14 @@ final class FieldResult {
         self.userConfirmed = userConfirmed
         self.edited = edited
         self.validationState = .unvalidated
+        
+        self.recognitionEngineUsed = recognitionEngineUsed
+        self.scoreImageQuality = scoreImageQuality
+        self.scoreAlignment = scoreAlignment
+        self.scoreOCR = scoreOCR
+        self.scoreValidation = scoreValidation
+        self.originalPageNumber = originalPageNumber
+        self.overrideHistory = overrideHistory
     }
     
     var rect: CGRect {
