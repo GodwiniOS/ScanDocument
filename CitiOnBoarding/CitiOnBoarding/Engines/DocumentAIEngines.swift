@@ -6,6 +6,7 @@ import CoreGraphics
 import PDFKit
 import CoreImage
 import NaturalLanguage
+import FoundationModels
 
 // MARK: - Pluggable AI Provider Protocol
 protocol DocumentAIProvider {
@@ -26,7 +27,8 @@ final class AppleNativeProvider: DocumentAIProvider {
     private init() {}
     
     func registerTemplatePreview(pdfDocument: PDFDocument) async throws -> (templateName: String, fields: [TemplateFieldCandidate]) {
-        var allPageObservations: [(pageIndex: Int, pageSize: CGSize, observations: [VNRecognizedTextObservation])] = []
+        // Stage 1a: Vision renders all pages and extracts raw text observations
+        var allPageObservations: [(pageIndex: Int, observations: [VNRecognizedTextObservation])] = []
         for i in 0..<pdfDocument.pageCount {
             guard let page = pdfDocument.page(at: i) else { continue }
             let pageRect = page.bounds(for: .mediaBox)
@@ -40,16 +42,40 @@ final class AppleNativeProvider: DocumentAIProvider {
                 ctx.cgContext.scaleBy(x: scale, y: -scale)
                 page.draw(with: .mediaBox, to: ctx.cgContext)
             }
-            
             guard let cgImage = pageImage.cgImage else { continue }
             let observations = try await VisionEngine.shared.process(page: cgImage)
-            allPageObservations.append((pageIndex: i, pageSize: renderSize, observations: observations))
+            allPageObservations.append((pageIndex: i, observations: observations))
         }
-        
         guard !allPageObservations.isEmpty else { return ("Unknown Form", []) }
+
+        // Stage 1b: Foundation Models understands the template structure
+        if #available(iOS 26, *), FoundationModelEngine.shared.isAvailable {
+            let pageTexts: [(page: Int, lines: [String])] = allPageObservations.map { pd in
+                let lines = pd.observations.compactMap { $0.topCandidates(1).first?.string }
+                return (page: pd.pageIndex, lines: lines)
+            }
+            do {
+                let semanticTemplate = try await FoundationModelEngine.shared.understandTemplate(pageTexts: pageTexts)
+                let candidates = semanticTemplate.fields.enumerated().map { idx, fmField -> TemplateFieldCandidate in
+                    let fieldType = fieldTypeFromString(fmField.dataType)
+                    return TemplateFieldCandidate(
+                        serialNumber: idx + 1,
+                        name: fmField.label.trimmingCharacters(in: .init(charactersIn: ": ")),
+                        expectedType: fieldType,
+                        isRequired: fmField.required,
+                        boundingBox: CGRect(x: 0.1, y: Double(idx) * 0.05, width: 0.8, height: 0.04)
+                    )
+                }
+                print("[FoundationModelEngine] Template understood: \(semanticTemplate.documentName) — \(candidates.count) fields")
+                return (semanticTemplate.documentName, candidates)
+            } catch {
+                print("[FoundationModelEngine] Template understanding failed: \(error.localizedDescription). Falling back to SemanticLayoutParser.")
+            }
+        }
+
+        // Fallback: SemanticLayoutParser (Vision + keyword heuristics)
         let firstPageTexts = allPageObservations.first?.observations.compactMap { $0.topCandidates(1).first?.string } ?? []
         let templateName = inferTemplateName(from: firstPageTexts)
-        
         var candidates: [TemplateFieldCandidate] = []
         for pageData in allPageObservations {
             let parsed = SemanticLayoutParser.shared.parsePage(observations: pageData.observations, pageIndex: pageData.pageIndex)
@@ -68,6 +94,29 @@ final class AppleNativeProvider: DocumentAIProvider {
             }
         }
         return (templateName, candidates)
+    }
+
+    private func fieldTypeFromString(_ str: String) -> FieldType {
+        switch str.lowercased() {
+        case "date": return .date
+        case "phone": return .phone
+        case "email": return .email
+        case "pan": return .pan
+        case "aadhaar": return .aadhaar
+        case "ifsc": return .ifsc
+        case "signature": return .signature
+        case "initials": return .initials
+        case "stamp": return .stamp
+        case "photo": return .photo
+        case "checkbox": return .checkbox
+        case "radio": return .radio
+        case "number": return .number
+        case "currency": return .currency
+        case "multiline", "multi_line": return .multiline
+        case "barcode": return .barcode
+        case "qrcode", "qr_code": return .qrCode
+        default: return .text
+        }
     }
     
     func commitTemplate(name: String, candidates: [TemplateFieldCandidate], modelContext: ModelContext) {
@@ -105,130 +154,188 @@ final class AppleNativeProvider: DocumentAIProvider {
         modelContext: ModelContext
     ) async throws -> [FieldResult] {
         var results: [FieldResult] = []
-        
+
         for (index, rawImage) in images.enumerated() {
             let qualityResult = ImageQualityEngine.shared.assess(image: rawImage)
             let warpedImage = ImageAlignmentEngine.shared.perspectiveCorrect(image: rawImage)
             guard let cgImage = warpedImage.cgImage else { continue }
-            
+
             let width = CGFloat(cgImage.width)
             let height = CGFloat(cgImage.height)
             let pageNumber = index + 1
-            
+
+            // Vision: extract all text observations and geometry for this page
             let observations = try await VisionEngine.shared.process(page: cgImage)
             let alignment = ImageAlignmentEngine.shared.align(scannedObservations: observations, template: template)
-            
-            if let fields = template.fields {
-                for field in fields {
-                    let projectedRect = ImageAlignmentEngine.shared.project(rect: field.inputBoxRect, alignment: alignment)
-                    let cropRect = CGRect(
-                        x: projectedRect.origin.x * width,
-                        y: projectedRect.origin.y * height,
-                        width: projectedRect.size.width * width,
-                        height: projectedRect.size.height * height
-                    )
-                    
-                    guard cropRect.width > 0 && cropRect.height > 0,
-                          let croppedCgImage = cgImage.cropping(to: cropRect) else { continue }
-                    let cropImage = UIImage(cgImage: croppedCgImage)
-                    
-                    var extractedText = ""
-                    var ocrConf = 0.90
-                    var engineUsed = "apple_vision"
-                    
-                    if field.captureMode == "image" {
-                        engineUsed = "signature"
-                        if let sigData = SignatureEngine.shared.process(crop: cropImage, sessionID: session.id, fieldId: field.fieldId, pageNumber: pageNumber) {
-                            let asset = SignatureAsset(
-                                fieldId: field.fieldId,
-                                pageNumber: pageNumber,
-                                imagePath: sigData.path,
-                                status: sigData.status,
-                                qualityScore: sigData.confidence,
-                                blank: sigData.blank,
-                                userVerified: false
-                            )
-                            asset.session = session
-                            modelContext.insert(asset)
-                            
-                            extractedText = sigData.status.uppercased()
-                            ocrConf = sigData.confidence
-                        }
-                    } else if field.captureMode == "checkbox" {
-                        engineUsed = "checkbox"
-                        let chkData = CheckboxEngine.shared.process(crop: cropImage)
-                        extractedText = chkData.checked ? "YES" : "NO"
-                        ocrConf = chkData.confidence
-                    } else {
-                        if field.isHandwritten {
-                            engineUsed = "handwriting"
-                            let res = try await HandwritingEngine.shared.process(crop: cropImage)
-                            extractedText = res.text
-                            ocrConf = res.confidence
-                        } else {
-                            engineUsed = "printed"
-                            let res = try await PrintedOCREngine.shared.process(crop: cropImage)
-                            extractedText = res.text
-                            ocrConf = res.confidence
-                        }
-                        
-                        let correctedText = SemanticPostProcessor.shared.postProcess(extractedText, for: field.expectedType, enforcePerfect: false)
-                        if correctedText != extractedText {
-                            extractedText = correctedText
-                            engineUsed += "_with_semantic_postprocessor"
-                            ocrConf = min(ocrConf + 0.08, 0.95)
-                        }
+            let ocrLines: [(text: String, box: CGRect)] = observations.compactMap { obs in
+                guard let text = obs.topCandidates(1).first?.string else { return nil }
+                return (text: text, box: obs.boundingBox.toTopLeft)
+            }
+
+            guard let fields = template.fields, !fields.isEmpty else { continue }
+
+            // Foundation Models Session 2: map this scanned page to template fields
+            var fmMappingByFieldId: [String: FMFieldMapping] = [:]
+            if #available(iOS 26, *), FoundationModelEngine.shared.isAvailable {
+                let templateJSON = buildTemplateJSON(template: template)
+                if let fmMapping = try? await FoundationModelEngine.shared.mapFieldsToTemplate(
+                    templateJSON: templateJSON,
+                    pageOCRLines: ocrLines,
+                    pageImage: warpedImage
+                ) {
+                    for mapping in fmMapping.mappings {
+                        fmMappingByFieldId[mapping.templateFieldId] = mapping
                     }
-                    
-                    let isValid = ValidationEngine.shared.validate(text: extractedText, for: field.expectedType)
-                    let normalizedVal = normalizeValue(extractedText, for: field.expectedType)
-                    let alignmentScore = (alignment.shiftX == 0 && alignment.shiftY == 0) ? 1.0 : 0.90
-                    let scores = ReviewEngine.shared.calculateConfidence(
-                        qualityScore: qualityResult.score,
-                        alignmentScore: alignmentScore,
-                        ocrScore: ocrConf,
-                        validationScore: isValid ? 1.0 : 0.0
-                    )
-                    
-                    let result = FieldResult(
-                        fieldID: field.id,
-                        boundingBox: projectedRect,
-                        ocrText: extractedText,
-                        confidence: scores.overall,
-                        ocrConfidence: scores.ocr,
-                        mappingConfidence: scores.mapping,
-                        validationConfidence: scores.validation,
-                        overallConfidence: scores.overall,
-                        isHandwritten: field.isHandwritten,
-                        userConfirmed: false,
-                        edited: false,
-                        recognitionEngineUsed: engineUsed,
-                        scoreImageQuality: qualityResult.score,
-                        scoreAlignment: alignmentScore,
-                        scoreOCR: ocrConf,
-                        scoreValidation: isValid ? 1.0 : 0.0,
-                        originalPageNumber: pageNumber,
-                        overrideHistory: []
-                    )
-                    result.normalizedValue = normalizedVal
-                    if field.captureMode == "image" {
-                        result.validationState = (extractedText == "MISSING") ? .invalid : .needsReview
-                    } else if field.captureMode == "checkbox" {
-                        result.validationState = .autoAccepted
-                    } else {
-                        result.validationState = isValid ? .autoAccepted : .invalid
-                        if extractedText.isEmpty {
-                            result.validationState = .empty
-                        }
-                    }
-                    results.append(result)
+                    print("[FoundationModelEngine] Session 2: mapped \(fmMappingByFieldId.count) fields on page \(pageNumber)")
                 }
+            }
+
+            for field in fields {
+                // Determine projected rect: prefer FM mapping over heuristic alignment
+                let projectedRect: CGRect
+                if let fmMap = fmMappingByFieldId[field.fieldId],
+                   fmMap.valueRegion.count == 4 {
+                    let b = fmMap.valueRegion
+                    projectedRect = CGRect(x: b[0], y: b[1], width: b[2], height: b[3])
+                } else {
+                    projectedRect = ImageAlignmentEngine.shared.project(rect: field.inputBoxRect, alignment: alignment)
+                }
+
+                let cropRect = CGRect(
+                    x: projectedRect.origin.x * width,
+                    y: projectedRect.origin.y * height,
+                    width: projectedRect.size.width * width,
+                    height: projectedRect.size.height * height
+                )
+                guard cropRect.width > 0, cropRect.height > 0,
+                      let croppedCgImage = cgImage.cropping(to: cropRect) else { continue }
+                let cropImage = UIImage(cgImage: croppedCgImage)
+
+                var extractedText = ""
+                var ocrConf = 0.90
+                var engineUsed = "apple_vision"
+
+                if field.captureMode == "image" {
+                    // Signature / Photo / Stamp: Vision crop only, FM validates presence
+                    engineUsed = "vision_signature"
+                    if let sigData = SignatureEngine.shared.process(crop: cropImage, sessionID: session.id, fieldId: field.fieldId, pageNumber: pageNumber) {
+                        let asset = SignatureAsset(
+                            fieldId: field.fieldId,
+                            pageNumber: pageNumber,
+                            imagePath: sigData.path,
+                            status: sigData.status,
+                            qualityScore: sigData.confidence,
+                            blank: sigData.blank,
+                            userVerified: false
+                        )
+                        asset.session = session
+                        modelContext.insert(asset)
+                        extractedText = sigData.status.uppercased()
+                        ocrConf = sigData.confidence
+                    }
+                } else if field.captureMode == "checkbox" {
+                    // Checkbox: Vision ink density
+                    engineUsed = "vision_checkbox"
+                    let chkData = CheckboxEngine.shared.process(crop: cropImage)
+                    extractedText = chkData.checked ? "YES" : "NO"
+                    ocrConf = chkData.confidence
+                } else {
+                    // Text field: Foundation Models detects writing mode, then Vision OCRs
+                    let fmWritingMode = fmMappingByFieldId[field.fieldId]?.writingMode ?? ""
+                    var visionText = ""
+                    var visionConf = 0.0
+
+                    if fmWritingMode == "handwritten" || field.isHandwritten {
+                        engineUsed = "vision_handwriting"
+                        let res = try await HandwritingEngine.shared.process(crop: cropImage)
+                        visionText = res.text; visionConf = res.confidence
+                    } else {
+                        engineUsed = "vision_printed"
+                        let res = try await PrintedOCREngine.shared.process(crop: cropImage)
+                        visionText = res.text; visionConf = res.confidence
+                    }
+
+                    // Foundation Models Session 3: normalize, correct OCR errors, validate
+                    if #available(iOS 26, *), FoundationModelEngine.shared.isAvailable, !visionText.isEmpty {
+                        if let corrected = try? await FoundationModelEngine.shared.correctAndValidate(
+                            rawText: visionText,
+                            fieldId: field.fieldId,
+                            fieldLabel: field.name,
+                            dataType: field.expectedType.rawValue
+                        ) {
+                            extractedText = corrected.correctedText
+                            ocrConf = min(visionConf + (corrected.confidence * 0.1), 0.99)
+                            engineUsed += "+foundation_models_correction"
+                            print("[FoundationModelEngine] Session 3: '\(visionText)' → '\(extractedText)' valid=\(corrected.isValid)")
+                        } else {
+                            extractedText = visionText
+                            ocrConf = visionConf
+                        }
+                    } else {
+                        // FM unavailable — use SemanticPostProcessor as fallback
+                        let corrected = SemanticPostProcessor.shared.postProcess(visionText, for: field.expectedType, enforcePerfect: false)
+                        extractedText = corrected
+                        ocrConf = visionConf
+                        if corrected != visionText { engineUsed += "+semantic_postprocessor" }
+                    }
+                }
+
+                let isValid = ValidationEngine.shared.validate(text: extractedText, for: field.expectedType)
+                let normalizedVal = normalizeValue(extractedText, for: field.expectedType)
+                let alignmentScore = fmMappingByFieldId[field.fieldId] != nil ? 0.97 : ((alignment.shiftX == 0 && alignment.shiftY == 0) ? 1.0 : 0.90)
+                let scores = ReviewEngine.shared.calculateConfidence(
+                    qualityScore: qualityResult.score,
+                    alignmentScore: alignmentScore,
+                    ocrScore: ocrConf,
+                    validationScore: isValid ? 1.0 : 0.0
+                )
+
+                let result = FieldResult(
+                    fieldID: field.id,
+                    boundingBox: projectedRect,
+                    ocrText: extractedText,
+                    confidence: scores.overall,
+                    ocrConfidence: scores.ocr,
+                    mappingConfidence: scores.mapping,
+                    validationConfidence: scores.validation,
+                    overallConfidence: scores.overall,
+                    isHandwritten: field.isHandwritten,
+                    userConfirmed: false,
+                    edited: false,
+                    recognitionEngineUsed: engineUsed,
+                    scoreImageQuality: qualityResult.score,
+                    scoreAlignment: alignmentScore,
+                    scoreOCR: ocrConf,
+                    scoreValidation: isValid ? 1.0 : 0.0,
+                    originalPageNumber: pageNumber,
+                    overrideHistory: []
+                )
+                result.normalizedValue = normalizedVal
+                if field.captureMode == "image" {
+                    result.validationState = (extractedText == "MISSING") ? .invalid : .needsReview
+                } else if field.captureMode == "checkbox" {
+                    result.validationState = .autoAccepted
+                } else {
+                    result.validationState = isValid ? .autoAccepted : .invalid
+                    if extractedText.isEmpty { result.validationState = .empty }
+                }
+                results.append(result)
             }
         }
         return results
     }
+
+    /// Serialise the registered template into a compact JSON string for FM prompts.
+    private func buildTemplateJSON(template: Template) -> String {
+        guard let fields = template.fields else { return "{}" }
+        let fieldList = fields.map { f -> String in
+            "{\"id\":\"\(f.fieldId)\",\"label\":\"\(f.name)\",\"type\":\"\(f.expectedType.rawValue)\",\"required\":\(f.isRequired)}"
+        }.joined(separator: ",")
+        return "{\"name\":\"\(template.name)\",\"fields\":[\(fieldList)]}"
+    }
     
     private func inferTemplateName(from texts: [String]) -> String {
+        // Keyword fallback used when Foundation Models is unavailable
         let combined = texts.joined(separator: " ").lowercased()
         if combined.contains("credit card") || combined.contains("card application") {
             return "Citi Credit Card Application"
@@ -487,6 +594,22 @@ final class AIProviderManager {
             return GeminiProvider.shared
         }
         return AppleNativeProvider.shared
+    }
+
+    /// Returns a description of the active intelligence tier for display in Settings.
+    @MainActor
+    static func activeIntelligenceDescription() -> String {
+        let providerType = UserDefaults.standard.string(forKey: "aiProviderType") ?? "apple"
+        if providerType.hasPrefix("gemini") {
+            return "Gemini 2.5 Flash (Online)"
+        }
+        if #available(iOS 26, *) {
+            let available = FoundationModelEngine.shared.isAvailable
+            return available
+                ? "Vision + Foundation Models (On-Device AI)"
+                : "Vision + CoreML Heuristics (Offline)"
+        }
+        return "Vision + CoreML Heuristics (Offline)"
     }
 }
 
