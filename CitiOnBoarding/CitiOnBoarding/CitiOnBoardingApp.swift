@@ -14,7 +14,8 @@ struct CitiOnBoardingApp: App {
                 Field.self,
                 FieldResult.self,
                 UserCorrection.self,
-                ExportRecord.self
+                ExportRecord.self,
+                SignatureAsset.self
             ])
             let config = ModelConfiguration(schema: schema)
             container = try ModelContainer(for: schema, configurations: config)

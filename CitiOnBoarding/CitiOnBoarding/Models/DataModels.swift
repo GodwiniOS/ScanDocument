@@ -26,6 +26,9 @@ final class DocumentSession {
     var matchedTemplate: Template?
     var exportRecord: ExportRecord?
     
+    @Relationship(deleteRule: .cascade, inverse: \SignatureAsset.session)
+    var signatures: [SignatureAsset]?
+    
     var documentType: String?
     var qualityScore: Double?
     var qualityStatus: String?
@@ -98,8 +101,11 @@ final class Page {
 @Model
 final class Field {
     var id: UUID
+    var fieldId: String
     var name: String
     var expectedType: FieldType
+    var captureMode: String // "text", "image", "checkbox", "barcode"
+    var ocrEnabled: Bool
     
     // Normalized coordinates (0.0 to 1.0)
     var boundingBoxX: Double
@@ -107,41 +113,102 @@ final class Field {
     var boundingBoxWidth: Double
     var boundingBoxHeight: Double
     
+    var inputBoxX: Double
+    var inputBoxY: Double
+    var inputBoxWidth: Double
+    var inputBoxHeight: Double
+    
+    var labelBoxX: Double
+    var labelBoxY: Double
+    var labelBoxWidth: Double
+    var labelBoxHeight: Double
+    
     var isRequired: Bool
     var isHandwritten: Bool
     
     var template: Template?
     
-    init(id: UUID = UUID(), name: String, expectedType: FieldType, boundingBox: CGRect, isRequired: Bool = true, isHandwritten: Bool = true) {
+    init(id: UUID = UUID(), fieldId: String? = nil, name: String, expectedType: FieldType, boundingBox: CGRect, isRequired: Bool = true, isHandwritten: Bool = true) {
         self.id = id
+        self.fieldId = fieldId ?? name.lowercased()
+            .replacingOccurrences(of: " ", with: "_")
+            .replacingOccurrences(of: ".", with: "")
+            .replacingOccurrences(of: ":", with: "")
         self.name = name
         self.expectedType = expectedType
         self.boundingBoxX = boundingBox.minX
         self.boundingBoxY = boundingBox.minY
         self.boundingBoxWidth = boundingBox.width
         self.boundingBoxHeight = boundingBox.height
+        
+        self.inputBoxX = boundingBox.minX
+        self.inputBoxY = boundingBox.minY
+        self.inputBoxWidth = boundingBox.width
+        self.inputBoxHeight = boundingBox.height
+        
+        self.labelBoxX = max(0, boundingBox.minX - 0.15)
+        self.labelBoxY = boundingBox.minY
+        self.labelBoxWidth = 0.15
+        self.labelBoxHeight = boundingBox.height
+        
         self.isRequired = isRequired
         self.isHandwritten = isHandwritten
+        
+        switch expectedType {
+        case .signature, .initials, .stamp, .photo, .image:
+            self.captureMode = "image"
+            self.ocrEnabled = false
+        case .checkbox, .radio:
+            self.captureMode = "checkbox"
+            self.ocrEnabled = false
+        case .barcode, .qrCode:
+            self.captureMode = "barcode"
+            self.ocrEnabled = true
+        default:
+            self.captureMode = "text"
+            self.ocrEnabled = true
+        }
     }
     
     var rect: CGRect {
         CGRect(x: boundingBoxX, y: boundingBoxY, width: boundingBoxWidth, height: boundingBoxHeight)
     }
+    
+    var inputBoxRect: CGRect {
+        CGRect(x: inputBoxX, y: inputBoxY, width: inputBoxWidth, height: inputBoxHeight)
+    }
+    
+    var labelBoxRect: CGRect {
+        CGRect(x: labelBoxX, y: labelBoxY, width: labelBoxWidth, height: labelBoxHeight)
+    }
 }
 
 enum FieldType: String, Codable {
     case text
-    case multiLine
+    case multiline
+    case number
+    case date
+    case currency
     case phone
     case email
-    case date
+    case checkbox
+    case radio
+    case dropdown
+    case table
+    case image
+    case signature      // Capture image only
+    case initials       // Capture image only
+    case stamp          // Capture image only
+    case photo          // Capture image only
+    case barcode
+    case qrCode
+    
+    // Legacy / Compatibility cases
     case pan
     case aadhaar
     case ifsc
-    case number
-    case currency
     case boolean
-    case signature
+    case multiLine
 }
 
 @Model
@@ -256,5 +323,31 @@ final class ExportRecord {
         self.exportDate = exportDate
         self.destination = destination
         self.payloadHash = payloadHash
+    }
+}
+
+// MARK: - Signature Asset Model
+@Model
+final class SignatureAsset {
+    var id: UUID
+    var fieldId: String
+    var pageNumber: Int
+    var imagePath: String // Path to cropped signature image file on disk
+    var status: String    // "present" or "missing"
+    var qualityScore: Double
+    var blank: Bool
+    var userVerified: Bool
+    
+    var session: DocumentSession?
+    
+    init(id: UUID = UUID(), fieldId: String, pageNumber: Int, imagePath: String, status: String = "present", qualityScore: Double = 1.0, blank: Bool = false, userVerified: Bool = false) {
+        self.id = id
+        self.fieldId = fieldId
+        self.pageNumber = pageNumber
+        self.imagePath = imagePath
+        self.status = status
+        self.qualityScore = qualityScore
+        self.blank = blank
+        self.userVerified = userVerified
     }
 }

@@ -81,7 +81,7 @@ final class DocumentEngine {
             modelContext.insert(page)
             pages.append(page)
             
-            // Stage 8: OCR & Handwriting Recognition
+            // Stage 8: OCR & Handwriting Recognition (full page on first page to match template)
             let observations = try await VisionEngine.shared.process(page: cgImage)
             let pageText = observations.compactMap { $0.topCandidates(1).first?.string }.joined(separator: " ")
             allOcrTexts += pageText + " "
@@ -98,41 +98,90 @@ final class DocumentEngine {
                 // Stage 7 & 10: Field Detection & Mapping
                 if let fields = template.fields {
                     for field in fields {
-                        // Find OCR text using label anchoring and spatial coordinate overlay
-                        let matchedText = findMatchingText(in: observations, forField: field)
-                        
-                        // Stage 11: Business Rule Validation (Perform semantic type checking)
-                        let isValid = ValidationEngine.shared.validate(text: matchedText.text, for: field.expectedType)
-                        
-                        // Stage 9: Semantic Understanding & Confidence calculation
-                        let ocrConf = matchedText.confidence
-                        let mappingConf = matchedText.overlap
-                        let validationConf = isValid ? 1.0 : 0.0
-                        let overallConf = (ocrConf + mappingConf + validationConf) / 3.0
-                        
-                        let result = FieldResult(
-                            fieldID: field.id,
-                            boundingBox: field.rect,
-                            ocrText: matchedText.text,
-                            confidence: overallConf,
-                            ocrConfidence: ocrConf,
-                            mappingConfidence: mappingConf,
-                            validationConfidence: validationConf,
-                            overallConfidence: overallConf,
-                            isHandwritten: field.isHandwritten,
-                            userConfirmed: false,
-                            edited: false
-                        )
-                        result.page = page
-                        
-                        // Format value semantic normalization
-                        result.normalizedValue = normalizeValue(matchedText.text, for: field.expectedType)
-                        result.validationState = isValid ? .autoAccepted : .invalid
-                        if matchedText.text.isEmpty {
-                            result.validationState = .empty
+                        if field.captureMode == "image" {
+                            // Cropping mode (signature, initials, stamp, photo, etc.)
+                            if let sigData = cropAndProcessSignature(image: enhancedImage, rect: field.rect, sessionID: session.id, fieldId: field.fieldId, pageNumber: page.pageNumber) {
+                                let asset = SignatureAsset(
+                                    fieldId: field.fieldId,
+                                    pageNumber: page.pageNumber,
+                                    imagePath: sigData.path,
+                                    status: sigData.status,
+                                    qualityScore: sigData.qualityScore,
+                                    blank: sigData.blank,
+                                    userVerified: false
+                                )
+                                asset.session = session
+                                modelContext.insert(asset)
+                                
+                                let result = FieldResult(
+                                    fieldID: field.id,
+                                    boundingBox: field.rect,
+                                    ocrText: sigData.status.uppercased(),
+                                    confidence: sigData.qualityScore,
+                                    ocrConfidence: sigData.qualityScore,
+                                    mappingConfidence: 1.0,
+                                    validationConfidence: sigData.blank ? 0.0 : 1.0,
+                                    overallConfidence: sigData.qualityScore,
+                                    isHandwritten: true,
+                                    userConfirmed: false,
+                                    edited: false
+                                )
+                                result.page = page
+                                result.validationState = sigData.blank ? .invalid : .autoAccepted
+                                modelContext.insert(result)
+                            }
+                        } else if field.captureMode == "checkbox" {
+                            // Checkbox detection
+                            let isChecked = detectCheckboxChecked(image: enhancedImage, rect: field.rect)
+                            let resultStr = isChecked ? "YES" : "NO"
+                            
+                            let result = FieldResult(
+                                fieldID: field.id,
+                                boundingBox: field.rect,
+                                ocrText: resultStr,
+                                confidence: 0.95,
+                                ocrConfidence: 0.95,
+                                mappingConfidence: 1.0,
+                                validationConfidence: 1.0,
+                                overallConfidence: 0.95,
+                                isHandwritten: true,
+                                userConfirmed: false,
+                                edited: false
+                            )
+                            result.page = page
+                            result.validationState = .autoAccepted
+                            modelContext.insert(result)
+                        } else {
+                            // Text capture mode (OCR / Targeted ROI)
+                            let ocrText: String
+                            do {
+                                ocrText = try await VisionEngine.shared.performTargetedOCR(on: cgImage, inRect: field.rect)
+                            } catch {
+                                ocrText = ""
+                            }
+                            
+                            let isValid = ValidationEngine.shared.validate(text: ocrText, for: field.expectedType)
+                            let result = FieldResult(
+                                fieldID: field.id,
+                                boundingBox: field.rect,
+                                ocrText: ocrText,
+                                confidence: 0.9,
+                                ocrConfidence: 0.9,
+                                mappingConfidence: 1.0,
+                                validationConfidence: isValid ? 1.0 : 0.0,
+                                overallConfidence: isValid ? 0.95 : 0.45,
+                                isHandwritten: field.isHandwritten,
+                                userConfirmed: false,
+                                edited: false
+                            )
+                            result.page = page
+                            result.normalizedValue = normalizeValue(ocrText, for: field.expectedType)
+                            result.validationState = isValid ? .autoAccepted : .invalid
+                            if ocrText.isEmpty {
+                                result.validationState = .empty
+                            }
+                            modelContext.insert(result)
                         }
-                        
-                        modelContext.insert(result)
                     }
                 }
             } else {
@@ -180,6 +229,135 @@ final class DocumentEngine {
         
         try modelContext.save()
         return session
+    }
+    
+    // MARK: - Signature Crop & Ink Analysis Helpers
+    private func cropAndProcessSignature(image: UIImage, rect: CGRect, sessionID: UUID, fieldId: String, pageNumber: Int) -> (path: String, status: String, qualityScore: Double, blank: Bool)? {
+        guard let cgImage = image.cgImage else { return nil }
+        
+        let width = CGFloat(cgImage.width)
+        let height = CGFloat(cgImage.height)
+        
+        let pixelRect = CGRect(
+            x: rect.origin.x * width,
+            y: rect.origin.y * height,
+            width: rect.size.width * width,
+            height: rect.size.height * height
+        )
+        
+        guard pixelRect.width > 0 && pixelRect.height > 0 else { return nil }
+        guard let croppedCgImage = cgImage.cropping(to: pixelRect) else { return nil }
+        let croppedUIImage = UIImage(cgImage: croppedCgImage)
+        
+        // CI color enhancement filter
+        let ciImage = CIImage(image: croppedUIImage)
+        let filter = CIFilter(name: "CIColorControls")
+        filter?.setValue(ciImage, forKey: kCIInputImageKey)
+        filter?.setValue(1.5, forKey: kCIInputContrastKey)
+        filter?.setValue(0.0, forKey: kCIInputSaturationKey)
+        
+        let context = CIContext(options: nil)
+        let finalUIImage: UIImage
+        if let output = filter?.outputImage, let finalCgImage = context.createCGImage(output, from: output.extent) {
+            finalUIImage = UIImage(cgImage: finalCgImage)
+        } else {
+            finalUIImage = croppedUIImage
+        }
+        
+        // Analyze ink coverage ratio
+        let inkStats = analyzeInkDensity(uiImage: finalUIImage)
+        let isBlank = inkStats.inkRatio < 0.02 // 2.0% ink coverage threshold
+        let status = isBlank ? "missing" : "present"
+        
+        let fileManager = FileManager.default
+        let paths = fileManager.urls(for: .documentDirectory, in: .userDomainMask)
+        guard let docDir = paths.first else { return nil }
+        
+        let signatureDir = docDir
+            .appendingPathComponent("sessions")
+            .appendingPathComponent(sessionID.uuidString)
+            .appendingPathComponent("signatures")
+            .appendingPathComponent("page_\(pageNumber)")
+        
+        do {
+            try fileManager.createDirectory(at: signatureDir, withIntermediateDirectories: true, attributes: nil)
+            let fileURL = signatureDir.appendingPathComponent("\(fieldId).png")
+            
+            if let pngData = finalUIImage.pngData() {
+                try pngData.write(to: fileURL)
+                let relativePath = "sessions/\(sessionID.uuidString)/signatures/page_\(pageNumber)/\(fieldId).png"
+                return (path: relativePath, status: status, qualityScore: 0.95, blank: isBlank)
+            }
+        } catch {
+            print("Failed to save signature asset: \(error.localizedDescription)")
+        }
+        
+        return nil
+    }
+    
+    private func analyzeInkDensity(uiImage: UIImage) -> (inkRatio: Double, averageBrightness: Double) {
+        guard let cgImage = uiImage.cgImage else { return (0.0, 1.0) }
+        
+        let width = cgImage.width
+        let height = cgImage.height
+        let bytesPerPixel = 4
+        let bytesPerRow = width * bytesPerPixel
+        let totalPixels = width * height
+        
+        var rawData = [UInt8](repeating: 0, count: totalPixels * bytesPerPixel)
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        let context = CGContext(
+            data: &rawData,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: bytesPerRow,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue
+        )
+        
+        context?.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+        
+        var darkPixelCount = 0
+        var totalBrightness = 0.0
+        
+        for i in 0..<totalPixels {
+            let r = Double(rawData[i * 4])
+            let g = Double(rawData[i * 4 + 1])
+            let b = Double(rawData[i * 4 + 2])
+            
+            let luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255.0
+            totalBrightness += luminance
+            
+            if luminance < 0.85 { // Ink pixel threshold
+                darkPixelCount += 1
+            }
+        }
+        
+        let inkRatio = Double(darkPixelCount) / Double(totalPixels)
+        let averageBrightness = totalBrightness / Double(totalPixels)
+        
+        return (inkRatio: inkRatio, averageBrightness: averageBrightness)
+    }
+    
+    private func detectCheckboxChecked(image: UIImage, rect: CGRect) -> Bool {
+        guard let cgImage = image.cgImage else { return false }
+        let width = CGFloat(cgImage.width)
+        let height = CGFloat(cgImage.height)
+        
+        let pixelRect = CGRect(
+            x: rect.origin.x * width,
+            y: rect.origin.y * height,
+            width: rect.size.width * width,
+            height: rect.size.height * height
+        )
+        
+        guard pixelRect.width > 0 && pixelRect.height > 0 else { return false }
+        guard let cropped = cgImage.cropping(to: pixelRect) else { return false }
+        let croppedUIImage = UIImage(cgImage: cropped)
+        
+        let stats = analyzeInkDensity(uiImage: croppedUIImage)
+        return stats.inkRatio > 0.18 // Checkbox is checked if ink ratio exceeds 18%
     }
     
     private func saveImageToDisk(image: UIImage, fileName: String) throws -> String {
@@ -608,6 +786,43 @@ final class VisionEngine {
             }
         }
     }
+    
+    /// Run OCR specifically targeted to a given crop rectangle region.
+    func performTargetedOCR(on image: CGImage, inRect rect: CGRect) async throws -> String {
+        let visionRect = rect.toVisionSpace
+        
+        // Pad the search region slightly by 5% to account for coordinate misalignments
+        let paddingX = visionRect.width * 0.05
+        let paddingY = visionRect.height * 0.05
+        let paddedRect = CGRect(
+            x: max(0.0, visionRect.origin.x - paddingX),
+            y: max(0.0, visionRect.origin.y - paddingY),
+            width: min(1.0 - visionRect.origin.x, visionRect.width + 2 * paddingX),
+            height: min(1.0 - visionRect.origin.y, visionRect.height + 2 * paddingY)
+        )
+        
+        return try await withCheckedThrowingContinuation { continuation in
+            let request = VNRecognizeTextRequest { req, err in
+                if let err = err {
+                    continuation.resume(throwing: err)
+                    return
+                }
+                let observations = req.results as? [VNRecognizedTextObservation] ?? []
+                let text = observations.compactMap { $0.topCandidates(1).first?.string }.joined(separator: " ")
+                continuation.resume(returning: text)
+            }
+            request.recognitionLevel = .accurate
+            request.usesLanguageCorrection = true
+            request.regionOfInterest = paddedRect
+            
+            let handler = VNImageRequestHandler(cgImage: image, options: [:])
+            do {
+                try handler.perform([request])
+            } catch {
+                continuation.resume(throwing: error)
+            }
+        }
+    }
 }
 
 // MARK: - PDF Template Extractor
@@ -829,6 +1044,12 @@ final class PDFTemplateExtractor {
     
     private func inferFieldType(from label: String) -> FieldType {
         let l = label.lowercased()
+        if l.contains("signature") || l.contains("sign") || l.contains("specimen") { return .signature }
+        if l.contains("initial") { return .initials }
+        if l.contains("stamp") { return .stamp }
+        if l.contains("photo") { return .photo }
+        if l.contains("barcode") { return .barcode }
+        if l.contains("qr") || l.contains("qrcode") { return .qrCode }
         if l.contains("date") || l.contains("dob") || l.contains("birth") { return .date }
         if l.contains("phone") || l.contains("mobile") || l.contains("contact") { return .phone }
         if l.contains("email") || l.contains("e-mail") { return .email }
@@ -837,8 +1058,7 @@ final class PDFTemplateExtractor {
         if l.contains("ifsc") { return .text }
         if l.contains("account") && (l.contains("number") || l.contains("no")) { return .number }
         if l.contains("income") || l.contains("salary") || l.contains("amount") || l.contains("currency") { return .number }
-        if l.contains("sign") { return .signature }
-        if l.contains("yes") || l.contains("no") || l.contains("checkbox") { return .boolean }
+        if l.contains("yes") || l.contains("no") || l.contains("checkbox") { return .checkbox }
         return .text
     }
     
@@ -1342,6 +1562,10 @@ extension Date {
 
 extension CGRect {
     var toTopLeft: CGRect {
+        CGRect(x: origin.x, y: 1.0 - origin.y - size.height, width: size.width, height: size.height)
+    }
+    
+    var toVisionSpace: CGRect {
         CGRect(x: origin.x, y: 1.0 - origin.y - size.height, width: size.width, height: size.height)
     }
 }

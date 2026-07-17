@@ -225,34 +225,54 @@ struct TemplateImportReviewView: View {
 struct FieldCandidateRow: View {
     @Binding var candidate: TemplateFieldCandidate
 
-    private let allTypes: [FieldType] = [.text, .number, .date, .boolean, .signature, .phone, .email, .pan, .aadhaar, .ifsc, .currency, .multiLine]
+    private let allTypes: [FieldType] = [
+        .text, .multiline, .number, .date, .currency, .phone, .email,
+        .checkbox, .radio, .dropdown, .table, .image, .signature,
+        .initials, .stamp, .photo, .barcode, .qrCode,
+        .pan, .aadhaar, .ifsc, .boolean
+    ]
 
     private func typeLabel(_ type: FieldType) -> String {
         switch type {
         case .text:      return "Text"
+        case .multiline: return "Multiline"
         case .number:    return "Number"
         case .date:      return "Date"
-        case .boolean:   return "Boolean"
-        case .signature: return "Signature"
+        case .currency:  return "Currency"
         case .phone:     return "Phone"
         case .email:     return "Email"
+        case .checkbox:  return "Checkbox"
+        case .radio:     return "Radio"
+        case .dropdown:  return "Dropdown"
+        case .table:     return "Table"
+        case .image:     return "Image"
+        case .signature: return "Signature"
+        case .initials:  return "Initials"
+        case .stamp:     return "Stamp"
+        case .photo:     return "Photo"
+        case .barcode:   return "Barcode"
+        case .qrCode:    return "QR Code"
         case .pan:       return "PAN"
         case .aadhaar:   return "Aadhaar"
         case .ifsc:      return "IFSC"
-        case .currency:  return "Currency"
+        case .boolean:   return "Boolean"
         case .multiLine: return "Multi-line"
         }
     }
 
     private func typeColor(_ type: FieldType) -> Color {
         switch type {
-        case .text, .multiLine: return .blue
+        case .text, .multiline, .multiLine: return .blue
         case .number, .currency: return .orange
         case .date:      return .purple
         case .boolean:   return .teal
-        case .signature: return .pink
+        case .signature, .initials: return .pink
+        case .stamp, .photo, .image: return .indigo
         case .phone, .email: return .green
         case .pan, .aadhaar, .ifsc: return .red
+        case .checkbox, .radio, .dropdown: return .cyan
+        case .table:     return .brown
+        case .barcode, .qrCode: return .gray
         }
     }
 

@@ -170,11 +170,21 @@ struct HomeView: View {
             }
             .overlay {
                 if sessions.isEmpty {
-                    ContentUnavailableView(
-                        "No Documents",
-                        systemImage: "doc.text.magnifyingglass",
-                        description: Text("Scan a form, import a file, or pick from gallery to extract details.")
-                    )
+                    ContentUnavailableView {
+                        Label {
+                            Text("No Documents")
+                        } icon: {
+                            Image("AppLogo")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 88, height: 88)
+                                .cornerRadius(18)
+                                .shadow(color: Color.black.opacity(0.12), radius: 8, x: 0, y: 4)
+                                .padding(.bottom, 8)
+                        }
+                    } description: {
+                        Text("Scan a form, import a file, or pick from gallery to extract details.")
+                    }
                 }
             }
         }

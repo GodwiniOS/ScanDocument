@@ -318,16 +318,26 @@ struct FieldEditSheet: View {
                 Section("Expected Extraction Data Type") {
                     Picker("Data Type", selection: $field.expectedType) {
                         Text("Text").tag(FieldType.text)
+                        Text("Multiline").tag(FieldType.multiline)
                         Text("Number").tag(FieldType.number)
                         Text("Boolean").tag(FieldType.boolean)
                         Text("Date").tag(FieldType.date)
                         Text("Signature").tag(FieldType.signature)
+                        Text("Initials").tag(FieldType.initials)
+                        Text("Stamp").tag(FieldType.stamp)
+                        Text("Photo").tag(FieldType.photo)
+                        Text("Barcode").tag(FieldType.barcode)
+                        Text("QR Code").tag(FieldType.qrCode)
                         Text("Phone").tag(FieldType.phone)
                         Text("Email").tag(FieldType.email)
                         Text("PAN").tag(FieldType.pan)
                         Text("Aadhaar").tag(FieldType.aadhaar)
                         Text("IFSC").tag(FieldType.ifsc)
                         Text("Currency").tag(FieldType.currency)
+                        Text("Radio").tag(FieldType.radio)
+                        Text("Dropdown").tag(FieldType.dropdown)
+                        Text("Table").tag(FieldType.table)
+                        Text("Image").tag(FieldType.image)
                     }
                     .pickerStyle(.inline)
                 }

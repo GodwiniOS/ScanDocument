@@ -8,6 +8,28 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section {
+                    VStack(alignment: .center, spacing: 8) {
+                        Image("AppLogo")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 80, height: 80)
+                            .cornerRadius(18)
+                            .shadow(color: Color.black.opacity(0.15), radius: 8, x: 0, y: 4)
+                            .padding(.top, 8)
+                        
+                        Text("Citi Onboarding")
+                            .font(.headline)
+                            .bold()
+                        
+                        Text("Secure Offline Document AI")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                            .padding(.bottom, 8)
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                
                 Section(header: Text("Security & Privacy")) {
                     Toggle(isOn: $isOfflineMode) {
                         VStack(alignment: .leading) {

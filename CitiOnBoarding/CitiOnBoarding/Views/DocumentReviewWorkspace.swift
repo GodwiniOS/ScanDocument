@@ -177,6 +177,7 @@ struct DocumentReviewWorkspace: View {
     
     private func floatingInspectorCard(for result: FieldResult) -> some View {
         let field = session.matchedTemplate?.fields?.first(where: { $0.id == result.fieldID })
+        let signatureAsset = session.signatures?.first(where: { $0.fieldId == field?.fieldId && $0.pageNumber == selectedPage?.pageNumber })
         
         return VStack(alignment: .leading, spacing: 10) {
             HStack {
@@ -195,30 +196,89 @@ struct DocumentReviewWorkspace: View {
                     .foregroundColor(.secondary)
             }
             
-            HStack(spacing: 8) {
-                if let page = selectedPage, let cropped = cropPreview(imagePath: page.imagePath, rect: result.rect) {
-                    Image(uiImage: cropped)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 80, height: 40)
-                        .background(Color.white)
-                        .cornerRadius(4)
-                        .shadow(radius: 1)
-                }
-                
-                TextField("Edit value", text: $editedValue)
-                    .textFieldStyle(.roundedBorder)
-                    .font(.caption)
-                    .onChange(of: editedValue) { oldValue, newValue in
-                        if newValue != result.finalValue {
-                            result.userOverride = newValue
-                            result.edited = true
-                            result.validationState = .edited
-                            let correction = UserCorrection(fieldResultID: result.id, originalValue: result.ocrText, correctedValue: newValue)
-                            modelContext.insert(correction)
-                            try? modelContext.save()
+            if field?.captureMode == "image" {
+                VStack(alignment: .leading, spacing: 6) {
+                    if let asset = signatureAsset, let sigImage = loadSignatureImage(from: asset) {
+                        HStack(alignment: .center, spacing: 12) {
+                            Image(uiImage: sigImage)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(height: 50)
+                                .padding(4)
+                                .background(Color.white)
+                                .cornerRadius(6)
+                                .shadow(radius: 1)
+                            
+                            VStack(alignment: .leading, spacing: 3) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: asset.status == "present" ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
+                                        .foregroundColor(asset.status == "present" ? .green : .red)
+                                        .font(.caption2)
+                                    Text(asset.status == "present" ? "Signature Present" : "Signature Missing")
+                                        .font(.caption)
+                                        .bold()
+                                        .foregroundColor(asset.status == "present" ? .green : .red)
+                                }
+                                Text("Ink Coverage: \(String(format: "%.1f%%", asset.qualityScore * 10.0))")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            Spacer()
+                            
+                            Menu {
+                                Button("Mark Present") {
+                                    asset.status = "present"
+                                    asset.userVerified = true
+                                    result.ocrText = "PRESENT"
+                                    result.validationState = .verified
+                                    try? modelContext.save()
+                                }
+                                Button("Mark Missing") {
+                                    asset.status = "missing"
+                                    asset.userVerified = true
+                                    result.ocrText = "MISSING"
+                                    result.validationState = .invalid
+                                    try? modelContext.save()
+                                }
+                            } label: {
+                                Image(systemName: "ellipsis.circle.fill")
+                                    .font(.title3)
+                                    .foregroundColor(.blue)
+                            }
                         }
+                    } else {
+                        Text("No cropped signature image found.")
+                            .font(.caption)
+                            .foregroundColor(.red)
                     }
+                }
+            } else {
+                HStack(spacing: 8) {
+                    if let page = selectedPage, let cropped = cropPreview(imagePath: page.imagePath, rect: result.rect) {
+                        Image(uiImage: cropped)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 80, height: 40)
+                            .background(Color.white)
+                            .cornerRadius(4)
+                            .shadow(radius: 1)
+                    }
+                    
+                    TextField("Edit value", text: $editedValue)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.caption)
+                        .onChange(of: editedValue) { oldValue, newValue in
+                            if newValue != result.finalValue {
+                                result.userOverride = newValue
+                                result.edited = true
+                                result.validationState = .edited
+                                let correction = UserCorrection(fieldResultID: result.id, originalValue: result.ocrText, correctedValue: newValue)
+                                modelContext.insert(correction)
+                                try? modelContext.save()
+                            }
+                        }
+                }
             }
             
             HStack {
@@ -667,6 +727,13 @@ struct DocumentReviewWorkspace: View {
     }
     
     // MARK: - Helpers
+    private func loadSignatureImage(from asset: SignatureAsset) -> UIImage? {
+        let paths = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
+        guard let docDir = paths.first else { return nil }
+        let fileURL = docDir.appendingPathComponent(asset.imagePath)
+        return UIImage(contentsOfFile: fileURL.path)
+    }
+    
     private func loadImage(from path: String) -> UIImage? {
         let filename = (path as NSString).lastPathComponent
         let paths = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
