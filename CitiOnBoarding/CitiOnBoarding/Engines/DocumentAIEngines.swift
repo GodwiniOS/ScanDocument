@@ -997,9 +997,15 @@ final class PrintedOCREngine {
     
     func process(crop: UIImage) async throws -> (text: String, confidence: Double) {
         guard let cgImage = crop.cgImage else { return ("", 0.0) }
+        guard cgImage.width > 2, cgImage.height > 2 else {
+            return ("", 0.0)
+        }
         
         return try await withCheckedThrowingContinuation { continuation in
+            var didResume = false
             let request = VNRecognizeTextRequest { req, err in
+                if didResume { return }
+                didResume = true
                 if let err = err {
                     continuation.resume(throwing: err)
                     return
@@ -1016,7 +1022,10 @@ final class PrintedOCREngine {
             do {
                 try handler.perform([request])
             } catch {
-                continuation.resume(throwing: error)
+                if !didResume {
+                    didResume = true
+                    continuation.resume(throwing: error)
+                }
             }
         }
     }
@@ -1029,9 +1038,15 @@ final class HandwritingEngine {
     
     func process(crop: UIImage) async throws -> (text: String, confidence: Double) {
         guard let cgImage = crop.cgImage else { return ("", 0.0) }
+        guard cgImage.width > 2, cgImage.height > 2 else {
+            return ("", 0.0)
+        }
         
         return try await withCheckedThrowingContinuation { continuation in
+            var didResume = false
             let request = VNRecognizeTextRequest { req, err in
+                if didResume { return }
+                didResume = true
                 if let err = err {
                     continuation.resume(throwing: err)
                     return
@@ -1048,7 +1063,10 @@ final class HandwritingEngine {
             do {
                 try handler.perform([request])
             } catch {
-                continuation.resume(throwing: error)
+                if !didResume {
+                    didResume = true
+                    continuation.resume(throwing: error)
+                }
             }
         }
     }
@@ -1335,11 +1353,11 @@ final class SemanticLayoutParser {
     func parsePage(observations: [VNRecognizedTextObservation], pageIndex: Int) -> [SemanticField] {
         var fields: [SemanticField] = []
         
-        // Convert Vision bounding boxes (origin bottom-left, y points up) to top-left space for reading order
+        // Convert Vision bounding boxes (bottom-left origin) to top-left space for reading order
         let elements = observations.compactMap { obs -> (text: String, rect: CGRect)? in
             guard let text = obs.topCandidates(1).first?.string else { return nil }
             return (text: text, rect: obs.boundingBox.toTopLeft)
-        }.sorted { 
+        }.sorted {
             if abs($0.rect.minY - $1.rect.minY) < 0.015 {
                 return $0.rect.minX < $1.rect.minX
             }
@@ -1348,23 +1366,61 @@ final class SemanticLayoutParser {
         
         let tagger = NLTagger(tagSchemes: [.lexicalClass, .nameType])
         
-        for (i, elem) in elements.enumerated() {
+        for (_, elem) in elements.enumerated() {
             let labelText = elem.text.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard labelText.count > 1 else { continue }
+            guard labelText.count > 2 else { continue }
             
-            // Skip headers, metadata lines, and page numbering patterns
+            let lowerLabel = labelText.lowercased()
+            
+            // ── Reject body text, legal copy, and page decorations ────────────────
+            // Long sentences are body text
+            if labelText.count > 80 { continue }
+            // More than 8 words → likely a sentence, not a label
+            let wordCount = labelText.split(separator: " ").count
+            if wordCount > 8 { continue }
+            // Pure numeric page markers
             if labelText.count < 4 && Int(labelText) != nil { continue }
-            if labelText.lowercased().contains("page") || labelText.lowercased().contains("citibank") || labelText.lowercased().contains("private bank") { continue }
-            if labelText.lowercased().contains("application for") || labelText.lowercased().contains("individual") { continue }
-            if labelText.lowercased().contains("client profile") || labelText.lowercased().contains("mailing address") { continue }
+            // Boilerplate header keywords
+            let boilerplate = ["page", "citibank", "private bank", "application for",
+                               "pursuant to", "as amended", "in witness", "hereby declare",
+                               "terms and conditions", "i/we agree", "in accordance",
+                               "dear sir", "dear madam", "to whom", "subject to",
+                               "for office", "for bank use", "bank use only", "for internal",
+                               "please tick", "please note", "note:", "instructions",
+                               "initial here", "authorised signatory"]
+            if boilerplate.contains(where: { lowerLabel.contains($0) }) { continue }
+            // Skip if the text starts with common legal lead-ins
+            let legalStarters = ["any ", "all ", "the ", "this ", "that ", "such ",
+                                  "each ", "we ", "i ", "our ", "your ", "by signing",
+                                  "in the event", "if any", "where the"]
+            if legalStarters.contains(where: { lowerLabel.hasPrefix($0) }) { continue }
+
+            // ── Accept only genuine form labels ──────────────────────────────────
+            let isCheckbox = labelText.contains("[ ]") || labelText.contains("[]")
+                          || labelText.contains("[  ]") || labelText.contains("[x]")
+                          || labelText.contains("[X]") || labelText.hasPrefix("☐")
+                          || labelText.hasPrefix("□")
+            let endsWithColon = labelText.hasSuffix(":") || labelText.hasSuffix(":")
+            let hasUnderscores = labelText.contains("___") || labelText.contains("---")
+            let isKnownFieldKeyword: Bool = {
+                let keywords = ["name", "date", "dob", "address", "city", "state",
+                                "country", "email", "phone", "mobile", "fax",
+                                "signature", "sign", "pan", "aadhaar", "passport",
+                                "nationality", "occupation", "employer", "designation",
+                                "income", "zip", "postal", "code", "number", "no.",
+                                "branch", "account", "ifsc", "currency", "amount",
+                                "relationship", "nominee", "gender", "marital",
+                                "sex", "tax", "annual", "net worth"]
+                return keywords.contains(where: { lowerLabel.contains($0) })
+            }()
+
+            guard isCheckbox || endsWithColon || hasUnderscores || isKnownFieldKeyword else { continue }
             
-            let isCheckbox = labelText.contains("[ ]") || labelText.contains("[]") || labelText.contains("[  ]") || labelText.contains("[x]") || labelText.contains("[X]")
-            
+            // ── Build bounding boxes ─────────────────────────────────────────────
             let labelBox = elem.rect
             var inputBox: CGRect
             
             if isCheckbox {
-                // Checkbox bounding region is mapped to the square immediately preceding the text
                 let checkOffset = 0.02
                 let checkWidth = 0.025
                 let checkHeight = 0.025
@@ -1375,22 +1431,17 @@ final class SemanticLayoutParser {
                     height: checkHeight
                 )
             } else {
-                // Find horizontal bounds for input: extends to the right until hitting next text boundary or margins
                 var boundaryX = 0.95
-                
                 let sameRowRight = elements.filter {
                     let isSameRow = abs($0.rect.midY - labelBox.midY) < 0.02
                     let isToRight = $0.rect.minX > labelBox.maxX
                     return isSameRow && isToRight
                 }
-                
                 if let nextElem = sameRowRight.sorted(by: { $0.rect.minX < $1.rect.minX }).first {
                     boundaryX = nextElem.rect.minX - 0.01
                 }
-                
                 let inputX = min(labelBox.maxX + 0.01, 0.95)
                 let inputWidth = max(0.05, boundaryX - inputX)
-                
                 inputBox = CGRect(
                     x: inputX,
                     y: max(0, labelBox.minY - labelBox.height * 0.1),
@@ -1399,14 +1450,12 @@ final class SemanticLayoutParser {
                 )
             }
             
-            // Determine expected data type from semantic context using Apple NLTagger
+            // ── Determine field type ─────────────────────────────────────────────
             tagger.string = labelText
             var fieldType: FieldType = .text
-            
-            let lowerLabel = labelText.lowercased()
             if lowerLabel.contains("date") || lowerLabel.contains("dob") || lowerLabel.contains("birth") {
                 fieldType = .date
-            } else if lowerLabel.contains("phone") || lowerLabel.contains("mobile") || lowerLabel.contains("tel ") || lowerLabel.contains("contact") {
+            } else if lowerLabel.contains("phone") || lowerLabel.contains("mobile") || lowerLabel.contains("tel ") {
                 fieldType = .phone
             } else if lowerLabel.contains("email") || lowerLabel.contains("e-mail") {
                 fieldType = .email
@@ -1420,17 +1469,17 @@ final class SemanticLayoutParser {
                 fieldType = .signature
             } else if isCheckbox || lowerLabel.contains("single") || lowerLabel.contains("joint") || lowerLabel.contains("sole") {
                 fieldType = .checkbox
-            } else if lowerLabel.contains("number") || lowerLabel.contains("no.") || lowerLabel.contains("postal") || lowerLabel.contains("zip") || lowerLabel.contains("code") || lowerLabel.contains("p.o.") {
+            } else if lowerLabel.contains("number") || lowerLabel.contains("no.") || lowerLabel.contains("postal") || lowerLabel.contains("zip") || lowerLabel.contains("code") {
                 fieldType = .number
+            } else if hasUnderscores {
+                fieldType = .text
             }
             
-            // Parse requirement boundaries
             let isOptional = lowerLabel.contains("optional") || lowerLabel.contains("if applicable")
             let isRequired = !isOptional
             
-            let cleanName = labelText.trimmingCharacters(in: .init(charactersIn: "[]: -*•"))
+            let cleanName = labelText.trimmingCharacters(in: .init(charactersIn: "[]: -*•_"))
             guard cleanName.count > 2 else { continue }
-            
             let name = "\(fields.count + 1). \(cleanName)"
             
             fields.append(SemanticField(
