@@ -287,7 +287,7 @@ final class FoundationModelEngine {
             instructions: """
             You are an enterprise banking Document AI engine performing template understanding.
             You receive Vision OCR text extracted from a BLANK banking form template.
-            
+
             Your task: UNDERSTAND the document structure. Do NOT extract applicant values.
             Identify:
             - Document name and issuing institution
@@ -298,10 +298,23 @@ final class FoundationModelEngine {
             - Repeatable applicant sections (e.g. Joint Applicant)
             - Signature, initials, and stamp areas
             - Table structures (beneficiaries, nominees, etc.)
-            
-            Only include genuine fillable input areas.
-            Ignore printed instructions, legal paragraphs, watermarks, and body text.
-            Return a complete, exhaustive field inventory.
+
+            BE PRECISE, NOT EXHAUSTIVE. Only include a field if the applicant is meant to
+            physically write, mark, or sign something in that exact spot. When in doubt, leave it out —
+            a missed field can be added manually, but a false field pollutes the entire form.
+
+            Explicitly EXCLUDE, even though they may contain field-like words (e.g. "signature", "date"):
+            - Section headings and sub-headings, e.g. "Specimen Signature and Signing Instruction",
+              "Customer Declaration" — these introduce a section, they are not themselves inputs.
+            - Instructional or explanatory sentences, e.g. "Please sign below in the presence of a witness."
+            - Legal paragraphs, disclaimers, terms and conditions, and watermark text.
+            - Anything phrased as a full sentence or multi-clause title rather than a short label.
+
+            A genuine field label is short (typically 1-4 words), stands alone next to blank space,
+            a line, or a box, and names exactly one piece of data (e.g. "Full Name:", "Date of Birth",
+            "Applicant Signature", "PAN Number"). A typical single-page banking form has roughly
+            15-50 genuine fields — if your count is far outside that range, you are likely including
+            headings or body text and should re-check each entry against the rules above.
             """
         )
 

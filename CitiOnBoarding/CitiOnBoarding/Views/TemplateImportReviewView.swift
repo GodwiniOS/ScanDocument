@@ -13,6 +13,7 @@ struct TemplateImportReviewView: View {
 
     @State private var templateName: String = ""
     @State private var candidates: [TemplateFieldCandidate] = []
+    @State private var baselineImages: [UIImage] = []
     @State private var isLoading = true
     @State private var showSuccess = false
 
@@ -191,6 +192,7 @@ struct TemplateImportReviewView: View {
         let result = await PDFTemplateExtractor.shared.extractPreviewFields(from: pdfDocument)
         templateName = result.templateName
         candidates = result.fields
+        baselineImages = result.baselineImages
         isLoading = false
     }
 
@@ -212,6 +214,7 @@ struct TemplateImportReviewView: View {
         PDFTemplateExtractor.shared.commitTemplate(
             name: templateName,
             candidates: candidates,
+            baselineImages: baselineImages,
             modelContext: modelContext
         )
         withAnimation { showSuccess = true }

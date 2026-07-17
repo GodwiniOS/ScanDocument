@@ -72,16 +72,22 @@ final class Template {
     var version: String
     var revision: String
     var effectiveDate: Date
-    
+
+    /// Paths to the rendered/scanned BLANK form page images, in page order.
+    /// This is the pixel baseline that lets the ink-diff pipeline isolate exactly
+    /// what a user wrote on a filled scan, rather than guessing from OCR + LLM alone.
+    var baselineImagePaths: [String] = []
+
     @Relationship(deleteRule: .cascade, inverse: \Field.template)
     var fields: [Field]?
-    
-    init(id: UUID = UUID(), name: String, version: String, revision: String = "A", effectiveDate: Date = Date()) {
+
+    init(id: UUID = UUID(), name: String, version: String, revision: String = "A", effectiveDate: Date = Date(), baselineImagePaths: [String] = []) {
         self.id = id
         self.name = name
         self.version = version
         self.revision = revision
         self.effectiveDate = effectiveDate
+        self.baselineImagePaths = baselineImagePaths
     }
 }
 
@@ -252,7 +258,13 @@ final class FieldResult {
     var scoreValidation: Double
     var originalPageNumber: Int
     var overrideHistory: [String]
-    
+
+    // Baseline-diff provenance: grounds "is this handwritten / did the user write anything here"
+    // in an actual pixel comparison against the blank template, instead of an LLM guess.
+    var inkRatio: Double
+    var inkDetected: Bool
+    var writingModeSource: String
+
     init(
         id: UUID = UUID(),
         fieldID: UUID,
@@ -272,7 +284,10 @@ final class FieldResult {
         scoreOCR: Double = 1.0,
         scoreValidation: Double = 1.0,
         originalPageNumber: Int = 1,
-        overrideHistory: [String] = []
+        overrideHistory: [String] = [],
+        inkRatio: Double = 0.0,
+        inkDetected: Bool = false,
+        writingModeSource: String = "heuristic"
     ) {
         self.id = id
         self.fieldID = fieldID
@@ -290,7 +305,7 @@ final class FieldResult {
         self.userConfirmed = userConfirmed
         self.edited = edited
         self.validationState = .unvalidated
-        
+
         self.recognitionEngineUsed = recognitionEngineUsed
         self.scoreImageQuality = scoreImageQuality
         self.scoreAlignment = scoreAlignment
@@ -298,6 +313,9 @@ final class FieldResult {
         self.scoreValidation = scoreValidation
         self.originalPageNumber = originalPageNumber
         self.overrideHistory = overrideHistory
+        self.inkRatio = inkRatio
+        self.inkDetected = inkDetected
+        self.writingModeSource = writingModeSource
     }
     
     var rect: CGRect {

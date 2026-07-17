@@ -7,11 +7,14 @@ import PDFKit
 import CoreImage
 import NaturalLanguage
 import FoundationModels
+import simd
 
 // MARK: - Pluggable AI Provider Protocol
 protocol DocumentAIProvider {
-    func registerTemplatePreview(pdfDocument: PDFDocument) async throws -> (templateName: String, fields: [TemplateFieldCandidate])
-    func commitTemplate(name: String, candidates: [TemplateFieldCandidate], modelContext: ModelContext)
+    /// Returns candidate fields plus the rendered BLANK page images (the pixel baseline
+    /// used later by InkDiffEngine to isolate user-entered ink on filled scans).
+    func registerTemplatePreview(pdfDocument: PDFDocument) async throws -> (templateName: String, fields: [TemplateFieldCandidate], baselineImages: [UIImage])
+    func commitTemplate(name: String, candidates: [TemplateFieldCandidate], baselineImages: [UIImage], modelContext: ModelContext)
     func processDocument(
         images: [UIImage],
         template: Template,
@@ -20,15 +23,133 @@ protocol DocumentAIProvider {
     ) async throws -> [FieldResult]
 }
 
+// MARK: - Deterministic Field Candidate Validator
+/// Gate applied to EVERY candidate field before it is committed to a Template — whether the
+/// candidate came from Vision+NL heuristics (SemanticLayoutParser) or from a Foundation Models
+/// / Gemini semantic understanding pass. LLMs are good at reading structure but will happily
+/// mistake a section heading ("Specimen Signature and Signing Instruction") for a fillable
+/// field when told to be "exhaustive" — so structure/linguistic rules get the final vote,
+/// not the model.
+enum FieldCandidateValidator {
+    static let boilerplateSubstrings: [String] = [
+        "page", "citibank", "private bank", "application for",
+        "pursuant to", "as amended", "in witness", "hereby declare",
+        "terms and conditions", "i/we agree", "in accordance",
+        "dear sir", "dear madam", "to whom", "subject to",
+        "for office", "for bank use", "bank use only", "for internal",
+        "please tick", "please note", "note:", "instructions",
+        "instruction", "declaration", "acknowledgement",
+        "acknowledgment", "undertaking", "certification", "disclaimer",
+        "important notice", "for reference", "signing instruction"
+    ]
+
+    static let legalStarters: [String] = [
+        "any ", "all ", "the ", "this ", "that ", "such ",
+        "each ", "we ", "i ", "our ", "your ", "by signing",
+        "in the event", "if any", "where the"
+    ]
+
+    /// Multi-word connectors that indicate a descriptive phrase/heading rather than a
+    /// single field label (e.g. "Specimen Signature AND Signing Instruction").
+    private static let headingConnectors: [String] = [" and ", " or ", " of the ", " in the "]
+
+    static let knownFieldKeywords: [String] = [
+        "name", "date", "dob", "address", "city", "state",
+        "country", "email", "phone", "mobile", "fax",
+        "signature", "sign", "pan", "aadhaar", "passport",
+        "nationality", "occupation", "employer", "designation",
+        "income", "zip", "postal", "code", "number", "no.",
+        "branch", "account", "ifsc", "currency", "amount",
+        "relationship", "nominee", "gender", "marital",
+        "sex", "tax", "annual", "net worth", "details"
+    ]
+
+    /// Returns true only for text that reads like a genuine fillable field label —
+    /// not a legal paragraph, section heading, or instructional line.
+    static func isLikelyGenuineField(_ rawLabel: String) -> Bool {
+        let text = rawLabel.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard text.count > 2, text.count <= 80 else { return false }
+        let lower = text.lowercased()
+        let wordCount = text.split(separator: " ").count
+
+        if wordCount > 8 { return false }
+        if boilerplateSubstrings.contains(where: { lower.contains($0) }) { return false }
+        if legalStarters.contains(where: { lower.hasPrefix($0) }) { return false }
+
+        let isCheckboxLike = text.contains("[ ]") || text.contains("[]")
+            || text.contains("[  ]") || text.lowercased().contains("[x]")
+            || text.hasPrefix("☐") || text.hasPrefix("□") || text.hasPrefix("—")
+            || text.hasPrefix("-") || text.hasPrefix("_") || text.hasPrefix("■") || text.hasPrefix("⚫︎")
+        let endsWithColon = text.hasSuffix(":") || text.hasSuffix("：")
+        let hasUnderscores = text.contains("___") || text.contains("---") || text.contains(" - ")
+
+        // A multi-word phrase joined by "and"/"or"/etc, with no colon or blank-line marker,
+        // reads like a heading/title ("Specimen Signature and Signing Instruction"), not a
+        // single field label — reject even if it happens to contain a field keyword.
+        if wordCount > 4, !endsWithColon, !hasUnderscores, !isCheckboxLike,
+           headingConnectors.contains(where: { lower.contains($0) }) {
+            return false
+        }
+
+        let isKnownFieldKeyword = knownFieldKeywords.contains(where: { lower.contains($0) })
+
+        // Keyword-only matches (no colon/underscore/checkbox marker) must be short —
+        // a real label is "Applicant Signature", not a four-word descriptive heading.
+        if isKnownFieldKeyword, !endsWithColon, !hasUnderscores, !isCheckboxLike {
+            return wordCount <= 4
+        }
+
+        return isCheckboxLike || endsWithColon || hasUnderscores || isKnownFieldKeyword
+    }
+}
+
+// MARK: - Baseline Image Store
+/// Persists the rendered blank-form page images used as the ink-diff pixel baseline.
+enum BaselineImageStore {
+    static func save(images: [UIImage], templateId: UUID) -> [String] {
+        guard !images.isEmpty else { return [] }
+        let fileManager = FileManager.default
+        guard let docDir = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else { return [] }
+        let baselineDir = docDir.appendingPathComponent("templates").appendingPathComponent(templateId.uuidString).appendingPathComponent("baseline")
+
+        do {
+            try fileManager.createDirectory(at: baselineDir, withIntermediateDirectories: true)
+        } catch {
+            print("[BaselineImageStore] Failed to create baseline directory: \(error.localizedDescription)")
+            return []
+        }
+
+        var paths: [String] = []
+        for (index, image) in images.enumerated() {
+            guard let data = image.jpegData(compressionQuality: 0.92) else { continue }
+            let fileURL = baselineDir.appendingPathComponent("page_\(index).jpg")
+            do {
+                try data.write(to: fileURL)
+                paths.append(fileURL.path)
+            } catch {
+                print("[BaselineImageStore] Failed to write baseline page \(index): \(error.localizedDescription)")
+            }
+        }
+        return paths
+    }
+
+    static func load(paths: [String]) -> [UIImage] {
+        paths.compactMap { UIImage(contentsOfFile: $0) }
+    }
+}
+
 // MARK: - Apple Native Provider (Offline-First)
 @MainActor
 final class AppleNativeProvider: DocumentAIProvider {
     static let shared = AppleNativeProvider()
     private init() {}
     
-    func registerTemplatePreview(pdfDocument: PDFDocument) async throws -> (templateName: String, fields: [TemplateFieldCandidate]) {
-        // Stage 1a: Vision renders all pages and extracts raw text observations
+    func registerTemplatePreview(pdfDocument: PDFDocument) async throws -> (templateName: String, fields: [TemplateFieldCandidate], baselineImages: [UIImage]) {
+        // Stage 1a: Vision renders all pages and extracts raw text observations.
+        // The rendered page images are ALSO kept as the pixel baseline — this is the
+        // reference the ink-diff engine will later subtract filled scans against.
         var allPageObservations: [(pageIndex: Int, observations: [VNRecognizedTextObservation])] = []
+        var baselineImages: [UIImage] = []
         for i in 0..<pdfDocument.pageCount {
             guard let page = pdfDocument.page(at: i) else { continue }
             let pageRect = page.bounds(for: .mediaBox)
@@ -43,10 +164,11 @@ final class AppleNativeProvider: DocumentAIProvider {
                 page.draw(with: .mediaBox, to: ctx.cgContext)
             }
             guard let cgImage = pageImage.cgImage else { continue }
+            baselineImages.append(pageImage)
             let observations = try await VisionEngine.shared.process(page: cgImage)
             allPageObservations.append((pageIndex: i, observations: observations))
         }
-        guard !allPageObservations.isEmpty else { return ("Unknown Form", []) }
+        guard !allPageObservations.isEmpty else { return ("Unknown Form", [], []) }
 
         // Stage 1b: Foundation Models understands the template structure
         if #available(iOS 26, *), FoundationModelEngine.shared.isAvailable {
@@ -56,24 +178,87 @@ final class AppleNativeProvider: DocumentAIProvider {
             }
             do {
                 let semanticTemplate = try await FoundationModelEngine.shared.understandTemplate(pageTexts: pageTexts)
-                let candidates = semanticTemplate.fields.enumerated().map { idx, fmField -> TemplateFieldCandidate in
+                
+                // Keep track of all physical text blocks across all pages to match coordinates
+                struct PhysicalBlock {
+                    let text: String
+                    let rect: CGRect
+                }
+                var physicalBlocks: [PhysicalBlock] = []
+                for pd in allPageObservations {
+                    for obs in pd.observations {
+                        if let text = obs.topCandidates(1).first?.string {
+                            physicalBlocks.append(PhysicalBlock(text: text, rect: obs.boundingBox.toTopLeft))
+                        }
+                    }
+                }
+                
+                // Deterministic gate: reject anything the LLM proposed that reads like a
+                // section heading, instruction, or legal paragraph rather than a genuine
+                // fillable field. This is what stops "Specimen Signature and Signing
+                // Instruction" (a heading) from being registered as a required signature field.
+                let genuineFields = semanticTemplate.fields.filter {
+                    FieldCandidateValidator.isLikelyGenuineField($0.label)
+                }
+                let rejectedCount = semanticTemplate.fields.count - genuineFields.count
+                if rejectedCount > 0 {
+                    print("[FoundationModelEngine] Filtered out \(rejectedCount) non-field candidates (headings/instructions/legal text) out of \(semanticTemplate.fields.count) proposed by FM Session 1")
+                }
+
+                let candidates = genuineFields.enumerated().map { idx, fmField -> TemplateFieldCandidate in
                     let fieldType = fieldTypeFromString(fmField.dataType)
+
+                    // Match semantic field label to the closest physical text block
+                    let fmLabelLower = fmField.label.lowercased()
+                    let bestMatch = physicalBlocks.min(by: { blockA, blockB in
+                        let distA = LevenshteinDistance(blockA.text.lowercased(), fmLabelLower)
+                        let distB = LevenshteinDistance(blockB.text.lowercased(), fmLabelLower)
+                        return distA < distB
+                    })
+                    
+                    let labelBox = bestMatch?.rect ?? CGRect(x: 0.1, y: Double(idx) * 0.05, width: 0.8, height: 0.04)
+                    
+                    // Determine input box (usually extends right from the label block)
+                    var inputBox = labelBox
+                    if fieldType == .checkbox {
+                        let checkOffset = 0.02
+                        let checkWidth = 0.025
+                        let checkHeight = 0.025
+                        inputBox = CGRect(
+                            x: max(0.01, labelBox.minX - checkOffset - checkWidth),
+                            y: labelBox.minY + (labelBox.height - checkHeight) / 2,
+                            width: checkWidth,
+                            height: checkHeight
+                        )
+                    } else {
+                        let inputX = min(labelBox.maxX + 0.01, 0.95)
+                        let inputWidth = max(0.05, 0.95 - inputX)
+                        inputBox = CGRect(
+                            x: inputX,
+                            y: max(0, labelBox.minY - labelBox.height * 0.1),
+                            width: inputWidth,
+                            height: labelBox.height * 1.3
+                        )
+                    }
+                    
                     return TemplateFieldCandidate(
                         serialNumber: idx + 1,
                         name: fmField.label.trimmingCharacters(in: .init(charactersIn: ": ")),
                         expectedType: fieldType,
                         isRequired: fmField.required,
-                        boundingBox: CGRect(x: 0.1, y: Double(idx) * 0.05, width: 0.8, height: 0.04)
+                        boundingBox: inputBox,
+                        inputBox: inputBox
                     )
                 }
-                print("[FoundationModelEngine] Template understood: \(semanticTemplate.documentName) — \(candidates.count) fields")
-                return (semanticTemplate.documentName, candidates)
+                print("[FoundationModelEngine] Template understood: \(semanticTemplate.documentName) — \(candidates.count) fields with physical coordinates")
+                return (semanticTemplate.documentName, candidates, baselineImages)
             } catch {
                 print("[FoundationModelEngine] Template understanding failed: \(error.localizedDescription). Falling back to SemanticLayoutParser.")
             }
         }
 
-        // Fallback: SemanticLayoutParser (Vision + keyword heuristics)
+        // Fallback: SemanticLayoutParser (Vision + keyword heuristics) — already runs every
+        // candidate through FieldCandidateValidator internally, so no extra filtering needed here.
         let firstPageTexts = allPageObservations.first?.observations.compactMap { $0.topCandidates(1).first?.string } ?? []
         let templateName = inferTemplateName(from: firstPageTexts)
         var candidates: [TemplateFieldCandidate] = []
@@ -93,7 +278,7 @@ final class AppleNativeProvider: DocumentAIProvider {
                 ))
             }
         }
-        return (templateName, candidates)
+        return (templateName, candidates, baselineImages)
     }
 
     private func fieldTypeFromString(_ str: String) -> FieldType {
@@ -119,10 +304,10 @@ final class AppleNativeProvider: DocumentAIProvider {
         }
     }
     
-    func commitTemplate(name: String, candidates: [TemplateFieldCandidate], modelContext: ModelContext) {
+    func commitTemplate(name: String, candidates: [TemplateFieldCandidate], baselineImages: [UIImage] = [], modelContext: ModelContext) {
         let descriptor = FetchDescriptor<Template>()
         let existingTemplates = (try? modelContext.fetch(descriptor)) ?? []
-        
+
         let template: Template
         if let existing = existingTemplates.first(where: { $0.name == name }) {
             if let oldFields = existing.fields { oldFields.forEach { modelContext.delete($0) } }
@@ -132,7 +317,11 @@ final class AppleNativeProvider: DocumentAIProvider {
             template = Template(name: name, version: "1.0")
             modelContext.insert(template)
         }
-        
+
+        if !baselineImages.isEmpty {
+            template.baselineImagePaths = BaselineImageStore.save(images: baselineImages, templateId: template.id)
+        }
+
         for candidate in candidates {
             let field = Field(
                 name: "\(candidate.serialNumber). \(candidate.name)",
@@ -146,7 +335,7 @@ final class AppleNativeProvider: DocumentAIProvider {
         }
         try? modelContext.save()
     }
-    
+
     func processDocument(
         images: [UIImage],
         template: Template,
@@ -154,18 +343,36 @@ final class AppleNativeProvider: DocumentAIProvider {
         modelContext: ModelContext
     ) async throws -> [FieldResult] {
         var results: [FieldResult] = []
+        let baselineImages = BaselineImageStore.load(paths: template.baselineImagePaths)
 
         for (index, rawImage) in images.enumerated() {
             let qualityResult = ImageQualityEngine.shared.assess(image: rawImage)
             let warpedImage = ImageAlignmentEngine.shared.perspectiveCorrect(image: rawImage)
-            guard let cgImage = warpedImage.cgImage else { continue }
-
-            let width = CGFloat(cgImage.width)
-            let height = CGFloat(cgImage.height)
+            // Denoise/contrast/sharpen the filled scan before anything else touches it. This
+            // was previously defined but never wired in — without it, uneven camera lighting
+            // and shadow gradients (which the clean, rendered baseline never has) show up as
+            // false "new ink" once InkDiffEngine starts subtracting pixels.
+            let enhancedImage = ImageEnhancementEngine.shared.enhance(image: warpedImage)
             let pageNumber = index + 1
 
+            // If a pixel baseline exists for this page, align the filled scan onto it using
+            // Vision's homographic registration. Once aligned, the template's field boxes
+            // (which were authored against this same baseline) apply directly — no more
+            // "shift and hope" heuristics — and InkDiffEngine can isolate exactly what the
+            // user added versus what was already printed on the blank form.
+            let baselineImage: UIImage? = (pageNumber - 1 < baselineImages.count) ? baselineImages[pageNumber - 1] : nil
+            var workingImage = enhancedImage
+            var registrationSucceeded = false
+            if let baselineImage, let aligned = ImageRegistrationEngine.shared.align(filledImage: enhancedImage, toBaseline: baselineImage) {
+                workingImage = aligned
+                registrationSucceeded = true
+            }
+            guard let workingCgImage = workingImage.cgImage else { continue }
+            let width = CGFloat(workingCgImage.width)
+            let height = CGFloat(workingCgImage.height)
+
             // Vision: extract all text observations and geometry for this page
-            let observations = try await VisionEngine.shared.process(page: cgImage)
+            let observations = try await VisionEngine.shared.process(page: workingCgImage)
             let alignment = ImageAlignmentEngine.shared.align(scannedObservations: observations, template: template)
             let ocrLines: [(text: String, box: CGRect)] = observations.compactMap { obs in
                 guard let text = obs.topCandidates(1).first?.string else { return nil }
@@ -174,14 +381,16 @@ final class AppleNativeProvider: DocumentAIProvider {
 
             guard let fields = template.fields, !fields.isEmpty else { continue }
 
-            // Foundation Models Session 2: map this scanned page to template fields
+            // Foundation Models Session 2: map this scanned page to template fields.
+            // Pass workingImage (post-registration) so FM's tool calls crop the SAME
+            // coordinate space as the OCR lines it's reasoning about.
             var fmMappingByFieldId: [String: FMFieldMapping] = [:]
             if #available(iOS 26, *), FoundationModelEngine.shared.isAvailable {
                 let templateJSON = buildTemplateJSON(template: template)
                 if let fmMapping = try? await FoundationModelEngine.shared.mapFieldsToTemplate(
                     templateJSON: templateJSON,
                     pageOCRLines: ocrLines,
-                    pageImage: warpedImage
+                    pageImage: workingImage
                 ) {
                     for mapping in fmMapping.mappings {
                         fmMappingByFieldId[mapping.templateFieldId] = mapping
@@ -190,13 +399,19 @@ final class AppleNativeProvider: DocumentAIProvider {
                 }
             }
 
+            let baselineCgImage = registrationSucceeded ? baselineImage?.cgImage : nil
+
             for field in fields {
-                // Determine projected rect: prefer FM mapping over heuristic alignment
+                // Determine projected rect: prefer FM mapping, else — when Vision registration
+                // succeeded — the template's own field box (authored against this baseline)
+                // now applies directly, else fall back to the old shift heuristic.
                 let projectedRect: CGRect
                 if let fmMap = fmMappingByFieldId[field.fieldId],
                    fmMap.valueRegion.count == 4 {
                     let b = fmMap.valueRegion
                     projectedRect = CGRect(x: b[0], y: b[1], width: b[2], height: b[3])
+                } else if registrationSucceeded {
+                    projectedRect = field.inputBoxRect
                 } else {
                     projectedRect = ImageAlignmentEngine.shared.project(rect: field.inputBoxRect, alignment: alignment)
                 }
@@ -208,44 +423,100 @@ final class AppleNativeProvider: DocumentAIProvider {
                     height: projectedRect.size.height * height
                 )
                 guard cropRect.width > 0, cropRect.height > 0,
-                      let croppedCgImage = cgImage.cropping(to: cropRect) else { continue }
+                      let croppedCgImage = workingCgImage.cropping(to: cropRect) else { continue }
                 let cropImage = UIImage(cgImage: croppedCgImage)
+
+                // Ink-diff: subtract the baseline (blank form) crop from the filled crop to
+                // isolate exactly what the user added. Only possible when registration
+                // succeeded, since only then do baseline and workingImage share coordinates.
+                var diffResult: InkDiffEngine.DiffResult? = nil
+                if let baselineCgImage {
+                    let baseCropRect = CGRect(
+                        x: projectedRect.origin.x * CGFloat(baselineCgImage.width),
+                        y: projectedRect.origin.y * CGFloat(baselineCgImage.height),
+                        width: projectedRect.size.width * CGFloat(baselineCgImage.width),
+                        height: projectedRect.size.height * CGFloat(baselineCgImage.height)
+                    )
+                    if baseCropRect.width > 0, baseCropRect.height > 0,
+                       let baseCroppedCg = baselineCgImage.cropping(to: baseCropRect) {
+                        diffResult = InkDiffEngine.shared.diff(baselineCrop: UIImage(cgImage: baseCroppedCg), filledCrop: cropImage)
+                    }
+                }
 
                 var extractedText = ""
                 var ocrConf = 0.90
                 var engineUsed = "apple_vision"
 
                 if field.captureMode == "image" {
-                    // Signature / Photo / Stamp: Vision crop only, FM validates presence
+                    // Signature / Photo / Stamp: Vision crop + baseline diff decide presence
                     engineUsed = "vision_signature"
                     if let sigData = SignatureEngine.shared.process(crop: cropImage, sessionID: session.id, fieldId: field.fieldId, pageNumber: pageNumber) {
+                        var status = sigData.status
+                        var isBlank = sigData.blank
+                        var conf = sigData.confidence
+                        if let diff = diffResult {
+                            // Diff cancels out the printed signature box border/label, so it's
+                            // a much more reliable presence signal than raw ink density.
+                            isBlank = !diff.hasInk
+                            status = isBlank ? "missing" : "present"
+                            conf = max(conf, 0.92)
+                            engineUsed += "+ink_diff"
+                        }
                         let asset = SignatureAsset(
                             fieldId: field.fieldId,
                             pageNumber: pageNumber,
                             imagePath: sigData.path,
-                            status: sigData.status,
-                            qualityScore: sigData.confidence,
-                            blank: sigData.blank,
+                            status: status,
+                            qualityScore: conf,
+                            blank: isBlank,
                             userVerified: false
                         )
                         asset.session = session
                         modelContext.insert(asset)
-                        extractedText = sigData.status.uppercased()
-                        ocrConf = sigData.confidence
+                        extractedText = status.uppercased()
+                        ocrConf = conf
                     }
                 } else if field.captureMode == "checkbox" {
-                    // Checkbox: Vision ink density
+                    // Checkbox: baseline diff isolates the mark itself, ignoring the printed
+                    // checkbox glyph that's identical in both baseline and filled scan.
                     engineUsed = "vision_checkbox"
-                    let chkData = CheckboxEngine.shared.process(crop: cropImage)
-                    extractedText = chkData.checked ? "YES" : "NO"
-                    ocrConf = chkData.confidence
+                    if let diff = diffResult {
+                        extractedText = diff.hasInk ? "YES" : "NO"
+                        ocrConf = 0.97
+                        engineUsed += "+ink_diff"
+                    } else {
+                        let chkData = CheckboxEngine.shared.process(crop: cropImage)
+                        extractedText = chkData.checked ? "YES" : "NO"
+                        ocrConf = chkData.confidence
+                    }
+                } else if field.captureMode == "barcode" {
+                    // Barcode/QR fields are pre-printed form content, not user ink — they
+                    // should be decoded regardless of what the diff engine found, and OCR
+                    // is the wrong tool for them entirely.
+                    engineUsed = "vision_barcode"
+                    if let barcode = BarcodeEngine.shared.process(crop: cropImage) {
+                        extractedText = barcode.payload
+                        ocrConf = barcode.confidence
+                        engineUsed += "_\(barcode.symbology)"
+                    } else {
+                        extractedText = ""
+                        ocrConf = 0.3
+                    }
+                } else if let diff = diffResult, !diff.hasInk {
+                    // Ground truth from the pixel diff: nothing was added here at all.
+                    // Skip OCR entirely rather than risk reading leftover printed text.
+                    engineUsed = "ink_diff_empty"
+                    extractedText = ""
+                    ocrConf = 0.95
                 } else {
-                    // Text field: Foundation Models detects writing mode, then Vision OCRs
+                    // Text field: ink-diff (if available) confirms handwriting is present;
+                    // otherwise fall back to Foundation Models' guess or the field's default.
                     let fmWritingMode = fmMappingByFieldId[field.fieldId]?.writingMode ?? ""
+                    let useHandwritingEngine = diffResult != nil || fmWritingMode == "handwritten" || field.isHandwritten
                     var visionText = ""
                     var visionConf = 0.0
 
-                    if fmWritingMode == "handwritten" || field.isHandwritten {
+                    if useHandwritingEngine {
                         engineUsed = "vision_handwriting"
                         let res = try await HandwritingEngine.shared.process(crop: cropImage)
                         visionText = res.text; visionConf = res.confidence
@@ -254,6 +525,7 @@ final class AppleNativeProvider: DocumentAIProvider {
                         let res = try await PrintedOCREngine.shared.process(crop: cropImage)
                         visionText = res.text; visionConf = res.confidence
                     }
+                    if diffResult != nil { engineUsed += "+ink_diff" }
 
                     // Foundation Models Session 3: normalize, correct OCR errors, validate
                     if #available(iOS 26, *), FoundationModelEngine.shared.isAvailable, !visionText.isEmpty {
@@ -282,7 +554,14 @@ final class AppleNativeProvider: DocumentAIProvider {
 
                 let isValid = ValidationEngine.shared.validate(text: extractedText, for: field.expectedType)
                 let normalizedVal = normalizeValue(extractedText, for: field.expectedType)
-                let alignmentScore = fmMappingByFieldId[field.fieldId] != nil ? 0.97 : ((alignment.shiftX == 0 && alignment.shiftY == 0) ? 1.0 : 0.90)
+                let alignmentScore: Double
+                if diffResult != nil {
+                    alignmentScore = 0.99
+                } else if fmMappingByFieldId[field.fieldId] != nil {
+                    alignmentScore = 0.97
+                } else {
+                    alignmentScore = (alignment.shiftX == 0 && alignment.shiftY == 0) ? 1.0 : 0.90
+                }
                 let scores = ReviewEngine.shared.calculateConfidence(
                     qualityScore: qualityResult.score,
                     alignmentScore: alignmentScore,
@@ -308,7 +587,10 @@ final class AppleNativeProvider: DocumentAIProvider {
                     scoreOCR: ocrConf,
                     scoreValidation: isValid ? 1.0 : 0.0,
                     originalPageNumber: pageNumber,
-                    overrideHistory: []
+                    overrideHistory: [],
+                    inkRatio: diffResult?.inkRatio ?? 0.0,
+                    inkDetected: diffResult?.hasInk ?? false,
+                    writingModeSource: diffResult != nil ? "ink_diff" : "heuristic"
                 )
                 result.normalizedValue = normalizedVal
                 if field.captureMode == "image" {
@@ -391,10 +673,10 @@ final class GeminiProvider: DocumentAIProvider {
     static let shared = GeminiProvider()
     private init() {}
     
-    func registerTemplatePreview(pdfDocument: PDFDocument) async throws -> (templateName: String, fields: [TemplateFieldCandidate]) {
-        guard pdfDocument.pageCount > 0 else { return ("Unknown Form", []) }
-        guard let firstPage = pdfDocument.page(at: 0) else { return ("Unknown Form", []) }
-        
+    func registerTemplatePreview(pdfDocument: PDFDocument) async throws -> (templateName: String, fields: [TemplateFieldCandidate], baselineImages: [UIImage]) {
+        guard pdfDocument.pageCount > 0 else { return ("Unknown Form", [], []) }
+        guard let firstPage = pdfDocument.page(at: 0) else { return ("Unknown Form", [], []) }
+
         let pageRect = firstPage.bounds(for: .mediaBox)
         let scale: CGFloat = 2.0
         let renderSize = CGSize(width: pageRect.width * scale, height: pageRect.height * scale)
@@ -406,14 +688,18 @@ final class GeminiProvider: DocumentAIProvider {
             ctx.cgContext.scaleBy(x: scale, y: -scale)
             firstPage.draw(with: .mediaBox, to: ctx.cgContext)
         }
-        
-        return try await GeminiAPIClient.shared.extractFields(from: pageImage)
+
+        // Gemini only inspects page 1 today, so that's the only baseline we can offer it —
+        // multi-page ink-diff coverage is an AppleNativeProvider-only advantage for now.
+        let (templateName, fields) = try await GeminiAPIClient.shared.extractFields(from: pageImage)
+        let genuineFields = fields.filter { FieldCandidateValidator.isLikelyGenuineField($0.name) }
+        return (templateName, genuineFields, [pageImage])
     }
-    
-    func commitTemplate(name: String, candidates: [TemplateFieldCandidate], modelContext: ModelContext) {
+
+    func commitTemplate(name: String, candidates: [TemplateFieldCandidate], baselineImages: [UIImage] = [], modelContext: ModelContext) {
         let descriptor = FetchDescriptor<Template>()
         let existingTemplates = (try? modelContext.fetch(descriptor)) ?? []
-        
+
         let template: Template
         if let existing = existingTemplates.first(where: { $0.name == name }) {
             if let oldFields = existing.fields { oldFields.forEach { modelContext.delete($0) } }
@@ -423,7 +709,11 @@ final class GeminiProvider: DocumentAIProvider {
             template = Template(name: name, version: "1.0")
             modelContext.insert(template)
         }
-        
+
+        if !baselineImages.isEmpty {
+            template.baselineImagePaths = BaselineImageStore.save(images: baselineImages, templateId: template.id)
+        }
+
         for candidate in candidates {
             let field = Field(
                 name: "\(candidate.serialNumber). \(candidate.name)",
@@ -633,14 +923,11 @@ final class DocumentEngine {
         guard let pdfDocument = PDFDocument(url: url) else {
             throw NSError(domain: "DocumentEngine", code: 2, userInfo: [NSLocalizedDescriptionKey: "Failed to load PDF document"])
         }
-        
-        // Stage 0: PDF Template Learning — extract field definitions from the form structure
-        await PDFTemplateExtractor.shared.learnTemplate(from: pdfDocument, modelContext: modelContext)
-        
+
         var images: [UIImage] = []
         for i in 0..<pdfDocument.pageCount {
             guard let page = pdfDocument.page(at: i) else { continue }
-            
+
             let pageRect = page.bounds(for: .mediaBox)
             let scale: CGFloat = 2.0 // Render at 2× for higher-quality OCR
             let renderSize = CGSize(width: pageRect.width * scale, height: pageRect.height * scale)
@@ -654,7 +941,25 @@ final class DocumentEngine {
             }
             images.append(image)
         }
-        
+
+        // Stage 0: PDF Template Learning — ONLY for genuinely unrecognized forms.
+        // "Import PDF" here is normally a FILLED document the user wants processed, not a
+        // blank template. Re-running learnTemplate against an already-registered template
+        // would treat the applicant's handwritten/typed values as if they were the form's
+        // field structure — corrupting the field list AND overwriting the pixel baseline
+        // that ink-diff depends on, with every re-import. Only auto-register when this
+        // document doesn't match anything already on file.
+        if let firstImage = images.first, let firstCg = firstImage.cgImage {
+            let firstPageObservations = (try? await VisionEngine.shared.process(page: firstCg)) ?? []
+            let existingMatch = await TemplateEngine.shared.detectTemplate(for: firstPageObservations, pageImage: firstCg, modelContext: modelContext)
+            if let existingMatch {
+                print("[DocumentEngine] Matched existing template '\(existingMatch.name)' — skipping re-learn to protect its fields and pixel baseline.")
+            } else {
+                await PDFTemplateExtractor.shared.learnTemplate(from: pdfDocument, modelContext: modelContext)
+            }
+        }
+
+
         return try await processScan(images: images, modelContext: modelContext)
     }
     
@@ -687,7 +992,7 @@ final class DocumentEngine {
             throw NSError(domain: "DocumentEngine", code: 3, userInfo: [NSLocalizedDescriptionKey: "Failed to parse CGImage"])
         }
         let observations = try await VisionEngine.shared.process(page: cgImage)
-        let matchedTemplate = await TemplateEngine.shared.detectTemplate(for: observations, modelContext: modelContext)
+        let matchedTemplate = await TemplateEngine.shared.detectTemplate(for: observations, pageImage: cgImage, modelContext: modelContext)
         
         if let template = matchedTemplate {
             session.matchedTemplate = template
@@ -1113,6 +1418,195 @@ final class ImageAlignmentEngine {
     }
 }
 
+/// Aligns a filled scan onto the pixel grid of its blank-form baseline using Vision's
+/// built-in homographic image registration — the Apple-native equivalent of "diffing two
+/// photos of the same physical page." Once aligned, InkDiffEngine can subtract pixels
+/// directly instead of guessing field-by-field from OCR text and an LLM.
+@MainActor
+final class ImageRegistrationEngine {
+    static let shared = ImageRegistrationEngine()
+    private init() {}
+
+    /// Returns `filledImage` warped into `baselineImage`'s coordinate space, or nil if
+    /// Vision couldn't find a confident homography (e.g. too little shared structure).
+    func align(filledImage: UIImage, toBaseline baselineImage: UIImage) -> UIImage? {
+        guard let filledCg = filledImage.cgImage, let baselineCg = baselineImage.cgImage else { return nil }
+
+        let request = VNHomographicImageRegistrationRequest(targetedCGImage: baselineCg, options: [:])
+        let handler = VNImageRequestHandler(cgImage: filledCg, options: [:])
+        do {
+            try handler.perform([request])
+        } catch {
+            print("[ImageRegistrationEngine] Registration failed: \(error.localizedDescription)")
+            return nil
+        }
+
+        guard let observation = request.results?.first as? VNImageHomographicAlignmentObservation else {
+            print("[ImageRegistrationEngine] No homography found — falling back to unaligned image")
+            return nil
+        }
+
+        let baselineSize = CGSize(width: baselineCg.width, height: baselineCg.height)
+        guard isPlausible(transform: observation.warpTransform, baselineSize: baselineSize) else {
+            print("[ImageRegistrationEngine] Homography failed plausibility check (degenerate/oversized quad) — treating as a failed registration rather than trusting it")
+            return nil
+        }
+        return warp(image: filledImage, using: observation.warpTransform, outputSize: baselineSize)
+    }
+
+    /// Vision's homographic registration exposes no confidence score, so a bad match (e.g.
+    /// too little shared structure between a clean rendered baseline and a photographed,
+    /// filled page) would otherwise be trusted silently. This is a cheap geometric sanity
+    /// check: project the filled image's four corners through the transform and reject
+    /// results that are collapsed, inverted, or wildly larger/smaller than the baseline —
+    /// a real page-to-page alignment should land close to the baseline's own footprint.
+    private func isPlausible(transform: simd_float3x3, baselineSize: CGSize) -> Bool {
+        let outW = Float(baselineSize.width)
+        let outH = Float(baselineSize.height)
+        guard outW > 0, outH > 0 else { return false }
+
+        func project(_ x: Float, _ y: Float) -> CGPoint? {
+            let p = transform * simd_float3(x, y, 1)
+            guard p.z.isFinite, abs(p.z) > 1e-6 else { return nil }
+            let px = p.x / p.z, py = p.y / p.z
+            guard px.isFinite, py.isFinite else { return nil }
+            return CGPoint(x: CGFloat(px * outW), y: CGFloat(py * outH))
+        }
+
+        guard let topLeft = project(0, 1), let topRight = project(1, 1),
+              let bottomLeft = project(0, 0), let bottomRight = project(1, 0) else { return false }
+
+        // Shoelace formula for the projected quad's area.
+        let pts = [topLeft, topRight, bottomRight, bottomLeft]
+        var signedArea: CGFloat = 0
+        for i in 0..<pts.count {
+            let j = (i + 1) % pts.count
+            signedArea += pts[i].x * pts[j].y - pts[j].x * pts[i].y
+        }
+        let quadArea = abs(signedArea) / 2
+        let baselineArea = CGFloat(outW) * CGFloat(outH)
+        let ratio = quadArea / baselineArea
+
+        // Reject near-collapsed quads (registration found a degenerate transform) and
+        // absurdly stretched ones (registration latched onto the wrong structure).
+        return ratio > 0.3 && ratio < 3.0
+    }
+
+    /// `transform` maps a normalized (bottom-left origin) point in the FLOATING (filled)
+    /// image to its corresponding normalized point in the REFERENCE (baseline) image.
+    /// We project the filled image's four corners through it to know where CIPerspectiveTransform
+    /// should place them, producing an output that lines up pixel-for-pixel with the baseline.
+    private func warp(image: UIImage, using transform: simd_float3x3, outputSize: CGSize) -> UIImage? {
+        guard let cgImage = image.cgImage else { return nil }
+        let ciImage = CIImage(cgImage: cgImage)
+        let outW = Float(outputSize.width)
+        let outH = Float(outputSize.height)
+
+        func project(_ x: Float, _ y: Float) -> CGPoint? {
+            let p = transform * simd_float3(x, y, 1)
+            guard p.z != 0 else { return nil }
+            return CGPoint(x: CGFloat(p.x / p.z * outW), y: CGFloat(p.y / p.z * outH))
+        }
+
+        guard let topLeft = project(0, 1),
+              let topRight = project(1, 1),
+              let bottomLeft = project(0, 0),
+              let bottomRight = project(1, 0) else { return nil }
+
+        guard let filter = CIFilter(name: "CIPerspectiveTransform") else { return nil }
+        filter.setValue(ciImage, forKey: kCIInputImageKey)
+        filter.setValue(CIVector(cgPoint: topLeft), forKey: "inputTopLeft")
+        filter.setValue(CIVector(cgPoint: topRight), forKey: "inputTopRight")
+        filter.setValue(CIVector(cgPoint: bottomLeft), forKey: "inputBottomLeft")
+        filter.setValue(CIVector(cgPoint: bottomRight), forKey: "inputBottomRight")
+
+        guard let output = filter.outputImage else { return nil }
+        let outputRect = CGRect(x: 0, y: 0, width: CGFloat(outW), height: CGFloat(outH))
+        // Areas outside the warped quad (e.g. filled photo didn't fully cover the baseline
+        // canvas) are transparent, which would otherwise composite as black — and look like
+        // ink to InkDiffEngine. Backfill with white so uncovered edges read as blank paper.
+        let whiteBackground = CIImage(color: .white).cropped(to: outputRect)
+        let composited = output.composited(over: whiteBackground)
+        let context = CIContext(options: nil)
+        guard let cg = context.createCGImage(composited, from: outputRect) else { return nil }
+        return UIImage(cgImage: cg)
+    }
+}
+
+/// Isolates exactly the pixels a user added to a scanned form by subtracting the blank
+/// template baseline from the (now pixel-aligned) filled scan. This is the deterministic,
+/// ground-truth alternative to asking an LLM "does this look handwritten" — printed labels,
+/// box borders, and preprinted text cancel out in the diff since they're dark in BOTH images;
+/// only genuinely new ink survives.
+@MainActor
+final class InkDiffEngine {
+    static let shared = InkDiffEngine()
+    private init() {}
+
+    struct DiffResult {
+        /// Fraction of pixels in the crop that are newly dark versus the baseline.
+        let inkRatio: Double
+        /// True if enough new ink was found to say the user wrote/marked something here.
+        let hasInk: Bool
+    }
+
+    /// `baselineCrop` and `filledCrop` should be crops of the SAME normalized field region,
+    /// taken from images that are already pixel-aligned (see ImageRegistrationEngine).
+    func diff(baselineCrop: UIImage, filledCrop: UIImage) -> DiffResult {
+        guard let baseCg = baselineCrop.cgImage, let filledCg = filledCrop.cgImage,
+              baseCg.width > 2, baseCg.height > 2 else {
+            return DiffResult(inkRatio: 0, hasInk: false)
+        }
+
+        let size = CGSize(width: baseCg.width, height: baseCg.height)
+        guard let baseBuffer = grayscaleBuffer(baseCg, size: size),
+              let filledBuffer = grayscaleBuffer(filledCg, size: size) else {
+            return DiffResult(inkRatio: 0, hasInk: false)
+        }
+
+        let count = min(baseBuffer.count, filledBuffer.count)
+        guard count > 0 else { return DiffResult(inkRatio: 0, hasInk: false) }
+
+        let inkThreshold: Int = 165        // below this luminance = "dark" (ink or print)
+        let baselineTolerance: Int = 25     // filled pixel must be this much darker than baseline to count as NEW ink
+        var newDarkPixels = 0
+
+        for i in 0..<count {
+            let filledV = Int(filledBuffer[i])
+            let baseV = Int(baseBuffer[i])
+            if filledV < inkThreshold, baseV - filledV > baselineTolerance {
+                newDarkPixels += 1
+            }
+        }
+
+        let ratio = Double(newDarkPixels) / Double(count)
+        // ~0.3% of a small field crop is enough for a checkmark, initial, or short word.
+        let hasInk = ratio > 0.003
+        return DiffResult(inkRatio: ratio, hasInk: hasInk)
+    }
+
+    /// Draws `cgImage` into a single-channel grayscale buffer resized to `size` in one pass —
+    /// this both normalizes color space AND resizes, so baseline/filled crops of slightly
+    /// different pixel dimensions still compare 1:1.
+    private func grayscaleBuffer(_ cgImage: CGImage, size: CGSize) -> [UInt8]? {
+        let width = max(1, Int(size.width))
+        let height = max(1, Int(size.height))
+        var pixels = [UInt8](repeating: 0, count: width * height)
+        guard let context = CGContext(
+            data: &pixels,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: width,
+            space: CGColorSpaceCreateDeviceGray(),
+            bitmapInfo: CGImageAlphaInfo.none.rawValue
+        ) else { return nil }
+        context.interpolationQuality = .high
+        context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+        return pixels
+    }
+}
+
 @MainActor
 final class PrintedOCREngine {
     static let shared = PrintedOCREngine()
@@ -1199,11 +1693,46 @@ final class HandwritingEngine {
 final class CheckboxEngine {
     static let shared = CheckboxEngine()
     private init() {}
-    
+
     func process(crop: UIImage) -> (checked: Bool, confidence: Double) {
         let stats = ImageQualityEngine.shared.analyzeInkDensity(uiImage: crop)
         let isChecked = stats.inkRatio > 0.16
         return (checked: isChecked, confidence: 0.95)
+    }
+}
+
+/// Decodes barcode/QR fields directly via Vision instead of running OCR on a barcode
+/// pattern (which produces garbage text). `.barcode`/`.qrCode` fields were a defined
+/// FieldType and captureMode with no corresponding extraction branch anywhere in the
+/// pipeline — this closes that gap.
+@MainActor
+final class BarcodeEngine {
+    static let shared = BarcodeEngine()
+    private init() {}
+
+    struct BarcodeResult {
+        let payload: String
+        let symbology: String
+        let confidence: Double
+    }
+
+    func process(crop: UIImage) -> BarcodeResult? {
+        guard let cgImage = crop.cgImage, cgImage.width > 2, cgImage.height > 2 else { return nil }
+
+        let request = VNDetectBarcodesRequest()
+        let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+        do {
+            try handler.perform([request])
+        } catch {
+            print("[BarcodeEngine] Detection failed: \(error.localizedDescription)")
+            return nil
+        }
+
+        guard let observation = (request.results as? [VNBarcodeObservation])?.first,
+              let payload = observation.payloadStringValue else {
+            return nil
+        }
+        return BarcodeResult(payload: payload, symbology: observation.symbology.rawValue, confidence: Double(observation.confidence))
     }
 }
 
@@ -1437,25 +1966,25 @@ final class PDFTemplateExtractor {
         let provider = AIProviderManager.currentProvider()
         do {
             let preview = try await provider.registerTemplatePreview(pdfDocument: pdfDocument)
-            provider.commitTemplate(name: preview.templateName, candidates: preview.fields, modelContext: modelContext)
+            provider.commitTemplate(name: preview.templateName, candidates: preview.fields, baselineImages: preview.baselineImages, modelContext: modelContext)
         } catch {
             print("Failed to auto-register template: \(error.localizedDescription)")
         }
     }
-    
-    func extractPreviewFields(from pdfDocument: PDFDocument) async -> (templateName: String, fields: [TemplateFieldCandidate]) {
+
+    func extractPreviewFields(from pdfDocument: PDFDocument) async -> (templateName: String, fields: [TemplateFieldCandidate], baselineImages: [UIImage]) {
         let provider = AIProviderManager.currentProvider()
         do {
             return try await provider.registerTemplatePreview(pdfDocument: pdfDocument)
         } catch {
             print("Provider failed template registration preview: \(error.localizedDescription)")
-            return ("Unknown Form", [])
+            return ("Unknown Form", [], [])
         }
     }
-    
-    func commitTemplate(name: String, candidates: [TemplateFieldCandidate], modelContext: ModelContext) {
+
+    func commitTemplate(name: String, candidates: [TemplateFieldCandidate], baselineImages: [UIImage] = [], modelContext: ModelContext) {
         let provider = AIProviderManager.currentProvider()
-        provider.commitTemplate(name: name, candidates: candidates, modelContext: modelContext)
+        provider.commitTemplate(name: name, candidates: candidates, baselineImages: baselineImages, modelContext: modelContext)
     }
 }
 
@@ -1492,53 +2021,25 @@ final class SemanticLayoutParser {
         for (_, elem) in elements.enumerated() {
             let labelText = elem.text.trimmingCharacters(in: .whitespacesAndNewlines)
             guard labelText.count > 2 else { continue }
-            
-            let lowerLabel = labelText.lowercased()
-            
-            // ── Reject body text, legal copy, and page decorations ────────────────
-            // Long sentences are body text
-            if labelText.count > 80 { continue }
-            // More than 8 words → likely a sentence, not a label
-            let wordCount = labelText.split(separator: " ").count
-            if wordCount > 8 { continue }
-            // Pure numeric page markers
-            if labelText.count < 4 && Int(labelText) != nil { continue }
-            // Boilerplate header keywords
-            let boilerplate = ["page", "citibank", "private bank", "application for",
-                               "pursuant to", "as amended", "in witness", "hereby declare",
-                               "terms and conditions", "i/we agree", "in accordance",
-                               "dear sir", "dear madam", "to whom", "subject to",
-                               "for office", "for bank use", "bank use only", "for internal",
-                               "please tick", "please note", "note:", "instructions",
-                               "initial here", "authorised signatory"]
-            if boilerplate.contains(where: { lowerLabel.contains($0) }) { continue }
-            // Skip if the text starts with common legal lead-ins
-            let legalStarters = ["any ", "all ", "the ", "this ", "that ", "such ",
-                                  "each ", "we ", "i ", "our ", "your ", "by signing",
-                                  "in the event", "if any", "where the"]
-            if legalStarters.contains(where: { lowerLabel.hasPrefix($0) }) { continue }
 
-            // ── Accept only genuine form labels ──────────────────────────────────
+            let lowerLabel = labelText.lowercased()
+
+            // Pure numeric page markers — not covered by the shared validator, specific to
+            // the raw single-line-element case this parser deals with.
+            if labelText.count < 4 && Int(labelText) != nil { continue }
+
+            // ── Shared deterministic gate (also applied to FM/Gemini output) ────────
+            guard FieldCandidateValidator.isLikelyGenuineField(labelText) else { continue }
+
             let isCheckbox = labelText.contains("[ ]") || labelText.contains("[]")
                           || labelText.contains("[  ]") || labelText.contains("[x]")
                           || labelText.contains("[X]") || labelText.hasPrefix("☐")
-                          || labelText.hasPrefix("□")
-            let endsWithColon = labelText.hasSuffix(":") || labelText.hasSuffix(":")
-            let hasUnderscores = labelText.contains("___") || labelText.contains("---")
-            let isKnownFieldKeyword: Bool = {
-                let keywords = ["name", "date", "dob", "address", "city", "state",
-                                "country", "email", "phone", "mobile", "fax",
-                                "signature", "sign", "pan", "aadhaar", "passport",
-                                "nationality", "occupation", "employer", "designation",
-                                "income", "zip", "postal", "code", "number", "no.",
-                                "branch", "account", "ifsc", "currency", "amount",
-                                "relationship", "nominee", "gender", "marital",
-                                "sex", "tax", "annual", "net worth"]
-                return keywords.contains(where: { lowerLabel.contains($0) })
-            }()
+                          || labelText.hasPrefix("□") || labelText.hasPrefix("—")
+                          || labelText.hasPrefix("-") || labelText.hasPrefix("_")
+                          || labelText.hasPrefix("■") || labelText.hasPrefix("⚫︎")
+            let endsWithColon = labelText.hasSuffix(":") || labelText.hasSuffix("：")
+            let hasUnderscores = labelText.contains("___") || labelText.contains("---") || labelText.contains(" - ")
 
-            guard isCheckbox || endsWithColon || hasUnderscores || isKnownFieldKeyword else { continue }
-            
             // ── Build bounding boxes ─────────────────────────────────────────────
             let labelBox = elem.rect
             var inputBox: CGRect
@@ -1624,19 +2125,29 @@ final class SemanticLayoutParser {
 @MainActor
 final class TemplateEngine {
     static let shared = TemplateEngine()
-    
+
     private init() {}
-    
-    /// Checks OCR results for keywords to match a predefined template.
-    /// Prefers templates learned from real PDFs over hardcoded seeds.
-    func detectTemplate(for observations: [VNRecognizedTextObservation], modelContext: ModelContext) async -> Template? {
+
+    /// In-memory cache of each template's baseline feature print, keyed by template id.
+    /// Feature prints are cheap but not free (~tens of ms each) — recomputing them for
+    /// every scan would be wasteful when keyword matching already gives a clear answer,
+    /// so this is only populated lazily, the first time visual matching is actually needed.
+    private var baselinePrintCache: [UUID: VNFeaturePrintObservation] = [:]
+
+    /// Matches a scanned page to a known template. Prefers the keyword-overlap score
+    /// against stored templates' field names when it's unambiguous, and only spends time
+    /// on Vision's on-device visual feature-print comparison — the same Core ML-backed
+    /// embedding used for reverse-image-search style matching — when keyword matching is
+    /// tied or came up empty (e.g. handwriting obscured the printed keywords).
+    func detectTemplate(for observations: [VNRecognizedTextObservation], pageImage: CGImage? = nil, modelContext: ModelContext) async -> Template? {
         let texts = observations.compactMap { $0.topCandidates(1).first?.string.lowercased() }
         let combined = texts.joined(separator: " ")
-        
+
         let descriptor = FetchDescriptor<Template>()
         let allTemplates = (try? modelContext.fetch(descriptor)) ?? []
-        
-        // First try: score match against each stored template by comparing its fields names to OCR text
+        guard !allTemplates.isEmpty else { return nil }
+
+        // First try: score match against each stored template by comparing its field names to OCR text
         let scored: [(template: Template, score: Int)] = allTemplates.map { template in
             let fieldNames = (template.fields ?? []).map { $0.name.lowercased() }
             let score = fieldNames.reduce(0) { acc, fieldName in
@@ -1647,12 +2158,49 @@ final class TemplateEngine {
             }
             return (template: template, score: score)
         }
-        
-        if let best = scored.max(by: { $0.score < $1.score }), best.score > 0 {
-            return best.template
+
+        let maxScore = scored.map(\.score).max() ?? 0
+        let topCandidates = scored.filter { $0.score == maxScore }
+
+        // A single, unambiguous keyword winner — no need to spend cycles on visual matching.
+        if maxScore > 0, topCandidates.count == 1 {
+            return topCandidates[0].template
         }
-        
-        // Second try: keyword-based name matching
+
+        // Ambiguous (tied keyword scores) or nothing matched at all — break the tie with
+        // Vision's on-device visual feature print, comparing the scanned page against each
+        // candidate's blank-form baseline image. This is exactly the situation where text
+        // matching is least reliable and image similarity is most useful.
+        if let pageImage, let scanPrint = featurePrint(for: pageImage) {
+            let candidatePool = topCandidates.isEmpty ? scored.map(\.template) : topCandidates.map(\.template)
+            let candidatesWithBaseline = candidatePool.filter { !$0.baselineImagePaths.isEmpty }
+
+            var bestMatch: (template: Template, distance: Float)? = nil
+            for template in candidatesWithBaseline {
+                guard let baselinePrint = baselineFeaturePrint(for: template) else { continue }
+                var distance: Float = .greatestFiniteMagnitude
+                do {
+                    try scanPrint.computeDistance(&distance, to: baselinePrint)
+                } catch {
+                    continue
+                }
+                if bestMatch == nil || distance < bestMatch!.distance {
+                    bestMatch = (template, distance)
+                }
+            }
+            if let bestMatch {
+                print("[TemplateEngine] Visual feature-print match: '\(bestMatch.template.name)' (distance \(bestMatch.distance))")
+                return bestMatch.template
+            }
+        }
+
+        // Still ambiguous — take whichever tied keyword candidate we found rather than
+        // dropping straight to the hardcoded name list below.
+        if maxScore > 0, let firstTied = topCandidates.first {
+            return firstTied.template
+        }
+
+        // Last resort: keyword-based name matching against hardcoded seed names.
         var matchedTemplateName = ""
         if combined.contains("credit card") || combined.contains("card application") {
             matchedTemplateName = "Citi Credit Card Application"
@@ -1661,12 +2209,38 @@ final class TemplateEngine {
         } else if combined.contains("custodian") || combined.contains("account opening") || combined.contains("investment") || combined.contains("private bank") {
             matchedTemplateName = "Citi Account Opening Form"
         }
-        
+
         if !matchedTemplateName.isEmpty {
             return allTemplates.first(where: { $0.name == matchedTemplateName })
         }
-        
+
         return nil
+    }
+
+    private func baselineFeaturePrint(for template: Template) -> VNFeaturePrintObservation? {
+        if let cached = baselinePrintCache[template.id] {
+            return cached
+        }
+        guard let firstPath = template.baselineImagePaths.first,
+              let uiImage = UIImage(contentsOfFile: firstPath),
+              let cgImage = uiImage.cgImage,
+              let fingerprint = featurePrint(for: cgImage) else {
+            return nil
+        }
+        baselinePrintCache[template.id] = fingerprint
+        return fingerprint
+    }
+
+    private func featurePrint(for cgImage: CGImage) -> VNFeaturePrintObservation? {
+        let request = VNGenerateImageFeaturePrintRequest()
+        let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+        do {
+            try handler.perform([request])
+            return request.results?.first as? VNFeaturePrintObservation
+        } catch {
+            print("[TemplateEngine] Feature print generation failed: \(error.localizedDescription)")
+            return nil
+        }
     }
 }
 
@@ -2318,4 +2892,19 @@ final class GeminiAPIClient {
         let scanRes = try JSONDecoder().decode(ScanResponse.self, from: parsedData)
         return scanRes.extractedValues
     }
+}
+
+/// Helper function to calculate the Levenshtein edit distance between two strings.
+func LevenshteinDistance(_ s1: String, _ s2: String) -> Int {
+    let empty = [Int](repeating: 0, count: s2.count + 1)
+    var last = [Int](0...s2.count)
+    
+    for (i, char1) in s1.enumerated() {
+        var current = [i + 1] + empty.dropFirst()
+        for (j, char2) in s2.enumerated() {
+            current[j + 1] = char1 == char2 ? last[j] : min(last[j + 1], current[j], last[j]) + 1
+        }
+        last = current
+    }
+    return last.last ?? 0
 }
